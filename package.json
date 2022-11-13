@@ -1,20 +1,20 @@
 {
-    "name": "template-node-backend-ts",
-    "version": "1.0.0",
-    "description": "Template for backend TypeScript-powered Node.js projects.",
+    "name": "deputy-dispatch",
+    "version": "0.1.0",
+    "description": "Webserver responsible for centralizing and optimizing data used by Deputy, a wiki copyright infringement investigation tool.",
     "main": "src/index.ts",
     "scripts": {},
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/ChlodAlejandro/template-node-backend-ts.git"
+        "url": "git+https://github.com/ChlodAlejandro/deputy-dispatch.git"
     },
     "keywords": [],
     "author": "Chlod Alejandro <chlod@chlod.net>",
     "license": "Apache-2.0",
     "bugs": {
-        "url": "https://github.com/ChlodAlejandro/template-node-backend-ts/issues"
+        "url": "https://github.com/ChlodAlejandro/deputy-dispatch/issues"
     },
-    "homepage": "https://github.com/ChlodAlejandro/template-node-backend-ts#readme",
+    "homepage": "https://github.com/ChlodAlejandro/deputy-dispatch#readme",
     "devDependencies": {
         "@types/node": "^18.11.4",
         "@typescript-eslint/eslint-plugin": "^5.42.0",

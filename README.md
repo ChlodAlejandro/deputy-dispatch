@@ -1,9 +1,5 @@
-# ts-backend-template
-This is a template to be used for backend TypeScript-powered Node.js projects.
+# Dispatch
+<img align="right" width="70" height="70" src="https://upload.wikimedia.org/wikipedia/commons/2/2b/Deputy_logo.svg">
 
-This can easily run any TypeScript project meant to run without a user interface.
-This template can be further expanded to include Express or Electron.
-
-This template was built for Node.js v14.15.1.
-
-This template is released under the Apache License 2.0.
+Dispatch is a Node.js webserver that exposes API endpoints that processes
+large masses of data from Wikimedia wikis for easier consumption by Deputy.
