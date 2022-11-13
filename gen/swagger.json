@@ -1,0 +1,263 @@
+{
+	"components": {
+		"examples": {},
+		"headers": {},
+		"parameters": {},
+		"requestBodies": {},
+		"responses": {},
+		"schemas": {
+			"ExpandedRevision": {
+				"description": "Represents an expanded revision. The expanded revision data is added in by Dispatch\nin order to pack more data within a revision. This data includes the name of the page,\nthe difference in bytes between the current and previous revision, and an HTML\nrendering of the user-provided summary.",
+				"properties": {
+					"revid": {
+						"type": "number",
+						"format": "double",
+						"description": "The ID of the revision."
+					},
+					"parentid": {
+						"type": "number",
+						"format": "double",
+						"description": "The revision that comes before this one."
+					},
+					"minor": {
+						"type": "boolean",
+						"description": "Whether this revision was marked as minor or not."
+					},
+					"user": {
+						"type": "string",
+						"description": "The name of the user who made the edit (may be a username or an IP address)."
+					},
+					"timestamp": {
+						"type": "string",
+						"description": "The timestamp on which the edit was made."
+					},
+					"size": {
+						"type": "number",
+						"format": "double",
+						"description": "The size of the revision in bytes."
+					},
+					"comment": {
+						"type": "string",
+						"description": "The summary left by the user for the revision."
+					},
+					"tags": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "The tags of this revision."
+					},
+					"page": {
+						"properties": {
+							"title": {
+								"type": "string"
+							},
+							"ns": {
+								"type": "number",
+								"format": "double"
+							},
+							"pageid": {
+								"type": "number",
+								"format": "double"
+							}
+						},
+						"required": [
+							"title",
+							"ns",
+							"pageid"
+						],
+						"type": "object"
+					},
+					"diffsize": {
+						"type": "number",
+						"format": "double"
+					},
+					"parsedcomment": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"revid",
+					"parentid",
+					"minor",
+					"user",
+					"timestamp",
+					"size",
+					"comment",
+					"tags",
+					"page",
+					"diffsize"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"MissingRevision": {
+				"description": "Represents a MediaWiki revision that is missing. This may be because the revision\nhas been deleted, the page has been deleted (and the user cannot access deleted\npages), or the user otherwise does not have permission to view the revision.",
+				"properties": {
+					"revid": {
+						"type": "number",
+						"format": "double"
+					},
+					"missing": {
+						"type": "boolean",
+						"enum": [
+							true
+						],
+						"nullable": false
+					}
+				},
+				"required": [
+					"revid"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"Revision": {
+				"anyOf": [
+					{
+						"$ref": "#/components/schemas/ExpandedRevision"
+					},
+					{
+						"$ref": "#/components/schemas/MissingRevision"
+					}
+				]
+			},
+			"Error": {
+				"properties": {
+					"code": {
+						"type": "string",
+						"description": "The error code"
+					},
+					"text": {
+						"type": "string",
+						"description": "The message of the error. Only available if the errorformat is\n`plaintext` or `wikitext`."
+					},
+					"key": {
+						"type": "string",
+						"description": "The key of the error's message. Used for localization. Only available\nif the errorformat is `raw`."
+					},
+					"params": {
+						"items": {
+							"type": "string"
+						},
+						"type": "array",
+						"description": "The params of the error's message. Used for localization. Only available\nif the errorformat is `raw`."
+					}
+				},
+				"required": [
+					"code"
+				],
+				"type": "object",
+				"additionalProperties": false
+			},
+			"ErrorResponse": {
+				"properties": {
+					"errors": {
+						"items": {
+							"$ref": "#/components/schemas/Error"
+						},
+						"type": "array",
+						"description": "The errors of this response."
+					},
+					"docref": {
+						"type": "string",
+						"description": "A human-readable message for where to find help."
+					}
+				},
+				"required": [
+					"errors",
+					"docref"
+				],
+				"type": "object",
+				"additionalProperties": false
+			}
+		},
+		"securitySchemes": {}
+	},
+	"info": {
+		"title": "deputy-dispatch",
+		"version": "0.1.0",
+		"description": "Webserver responsible for centralizing and optimizing data used by Deputy, a wiki copyright infringement investigation tool.",
+		"license": {
+			"name": "Apache-2.0"
+		},
+		"contact": {
+			"name": "Chlod Alejandro ",
+			"email": "chlod@chlod.net"
+		}
+	},
+	"openapi": "3.0.0",
+	"paths": {
+		"/v1/revisions/{wiki}": {
+			"get": {
+				"operationId": "GetRevision",
+				"responses": {
+					"200": {
+						"description": "OK",
+						"content": {
+							"application/json": {
+								"schema": {
+									"anyOf": [
+										{
+											"properties": {
+												"revisions": {
+													"items": {
+														"$ref": "#/components/schemas/Revision"
+													},
+													"type": "array"
+												}
+											},
+											"required": [
+												"revisions"
+											],
+											"type": "object"
+										},
+										{
+											"$ref": "#/components/schemas/ErrorResponse"
+										}
+									]
+								}
+							}
+						}
+					},
+					"422": {
+						"description": "Unsupported wiki",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				},
+				"security": [],
+				"parameters": [
+					{
+						"description": "Database name of the wiki",
+						"in": "path",
+						"name": "wiki",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"description": "Revision IDs to process, separated by pipes (`|`)",
+						"in": "query",
+						"name": "revisions",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				]
+			}
+		}
+	},
+	"servers": [
+		{
+			"url": "/"
+		}
+	]
+}

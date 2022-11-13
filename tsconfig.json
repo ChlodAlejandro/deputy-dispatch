@@ -1,10 +1,12 @@
 {
     "compilerOptions": {
-        "rootDir": "./src",
-        "outDir": "./build",
-        "allowJs": false,
+        "experimentalDecorators": true,
+        "incremental": true,
         "target": "es6",
         "module": "CommonJS",
+        "outDir": "./build",
+
+        "allowJs": false,
         "esModuleInterop": true,
         "inlineSources": true,
         "sourceMap": true,
