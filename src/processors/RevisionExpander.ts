@@ -2,7 +2,7 @@ import { isValidRevision, MissingRevision, Revision, RevisionData } from '../mod
 import { ApiResponse, mwn } from 'mwn';
 import fakePromise, { FakePromise } from '../util/func/fakePromise';
 import stagger from '../util/func/stagger';
-import Dispatch from '../index';
+import Dispatch from '../Dispatch';
 
 /**
  * @example https://w.wiki/6Dzt

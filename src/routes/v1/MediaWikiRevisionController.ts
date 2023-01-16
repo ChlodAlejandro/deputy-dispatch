@@ -16,7 +16,7 @@ import express from 'express';
 import RevisionStore from '../../util/RevisionStore';
 import RevisionExpander from '../../processors/RevisionExpander';
 import WikimediaSessionManager from '../../processors/WikimediaSessionManager';
-import Dispatch from '../../index';
+import Dispatch from '../../Dispatch';
 
 /**
  *
