@@ -64,7 +64,7 @@ export interface SiteMatrixLanguageSite {
 	nonglobal?: '';
 }
 
-interface SiteMatrixSite extends SiteMatrixLanguageSite {
+export interface SiteMatrixSite extends SiteMatrixLanguageSite {
 	/**
 	 * Language code (ISO 639 1–3 code) for this language. Might not be an actual
 	 * language code sometimes (e.g. "advisors" for advisors.wikimedia.org).
@@ -109,6 +109,12 @@ export class WikimediaSiteMatrix {
 	 * @private
 	 */
 	private matrixHostnameIndex: Record<string, SiteMatrixSite>;
+	/**
+	 * All wikis indexed by origin.
+	 *
+	 * @private
+	 */
+	private matrixOriginIndex: Record<string, SiteMatrixSite>;
 
 	/**
 	 * Private constructor for singleton instantiation.
@@ -129,20 +135,23 @@ export class WikimediaSiteMatrix {
 		this.matrix = matrix;
 		this.matrixDbNameIndex = {};
 		this.matrixHostnameIndex = {};
+		this.matrixOriginIndex = {};
 
 		for ( const i of Object.keys( matrix ) ) {
 			if ( !isNaN( +i ) ) {
 				for ( const site of matrix[ i ].site ) {
-					const appliedSite = Object.assign( matrix[ i ].site, { lang: matrix[ i ] } );
+					const appliedSite = Object.assign( site, { lang: matrix[ i ] } );
 
 					this.matrixDbNameIndex[ site.dbname ] = appliedSite;
 					this.matrixHostnameIndex[ new URL( site.url ).hostname ] = appliedSite;
+					this.matrixOriginIndex[ new URL( site.url ).origin ] = appliedSite;
 				}
 			}
 		}
 		for ( const special of matrix.specials ) {
 			this.matrixDbNameIndex[ special.dbname ] = special;
 			this.matrixHostnameIndex[ new URL( special.url ).hostname ] = special;
+			this.matrixOriginIndex[ new URL( special.url ).origin ] = special;
 		}
 
 		return this.matrix;
@@ -177,6 +186,16 @@ export class WikimediaSiteMatrix {
 	async getDbName( dbName: string ): Promise<SiteMatrixSite | null> {
 		await this.get();
 		return this.matrixDbNameIndex[ dbName ];
+	}
+
+	/**
+	 * Gets the HTTP origin for a given wiki. Used for access control.
+	 *
+	 * @param origin
+	 */
+	async getOrigin( origin: string ): Promise<SiteMatrixSite | null> {
+		await this.get();
+		return this.matrixOriginIndex[ origin ];
 	}
 
 	/**

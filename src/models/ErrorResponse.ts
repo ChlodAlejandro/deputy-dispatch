@@ -58,6 +58,12 @@ export interface ErrorResponse {
  */
 export default class ErrorResponseBuilder {
 
+	static generic = new ErrorResponseBuilder()
+		.add( 'generic-error', {
+			text: 'A generic error.',
+			key: 'apierror-generic'
+		} );
+
 	private errors: {code: string, message: ErrorResponseMessage, data?: Record<string, any> }[] =
 		[];
 
@@ -66,6 +72,19 @@ export default class ErrorResponseBuilder {
 	 */
 	get empty(): boolean {
 		return !this.errors.length;
+	}
+
+	/**
+	 * Clones an ErrorResponseBuilder
+	 *
+	 * @return An ErrorResponseBuilder with the same errors as this one
+	 */
+	clone(): ErrorResponseBuilder {
+		const builder = new ErrorResponseBuilder();
+		for ( const error of this.errors ) {
+			builder.errors.push( error );
+		}
+		return builder;
 	}
 
 	/**

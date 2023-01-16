@@ -16,8 +16,10 @@ export interface RevisionData {
 	minor: boolean,
 	/**
 	 * The name of the user who made the edit (may be a username or an IP address).
+	 *
+	 * If the user is not visible (due to suppression or deletion), `null` is used.
 	 */
-	user: string,
+	user: string | null,
 	/**
 	 * The timestamp on which the edit was made.
 	 */
@@ -25,15 +27,34 @@ export interface RevisionData {
 	/**
 	 * The size of the revision in bytes.
 	 */
-	size: number,
+	size: number | null,
 	/**
 	 * The summary left by the user for the revision.
+	 *
+	 * If the comment is not visible (due to suppression or deletion), `null` is used.
 	 */
 	comment: string;
 	/**
 	 * The tags of this revision.
 	 */
 	tags: string[];
+	/**
+	 * Whether certain parts of this revision is not visible to users.
+	 */
+	visibility?: {
+		/**
+		 * Whether the comment left by the user is not visible.
+		 */
+		comment: boolean,
+		/**
+		 * Whether the text of the edit is not visible.
+		 */
+		text: boolean,
+		/**
+		 * Whether the user who made the edit is not visible.
+		 */
+		user: boolean
+	};
 }
 
 /**
@@ -44,6 +65,15 @@ export interface RevisionData {
 export interface MissingRevision {
 	revid: number;
 	missing?: true;
+}
+/**
+ * Represents a MediaWiki revision that is invalid. This is almost always a malformed
+ * revision ID, which is either some string that isn't a proper number, or a negative
+ * number.
+ */
+export interface InvalidRevision {
+	revid: number;
+	invalid?: true;
 }
 
 /**
@@ -62,4 +92,31 @@ export interface ExpandedRevision extends RevisionData {
 	parsedcomment?: string
 }
 
-export type Revision = ExpandedRevision | MissingRevision;
+/**
+ * @return `true` if a revision is missing.
+ * @param revision
+ */
+export function isMissingRevision( revision: Revision ): revision is InvalidRevision {
+	return !!( revision as any ).missing;
+}
+
+/**
+ * @return `true` if a revision is invalid.
+ * @param revision
+ */
+export function isInvalidRevision( revision: Revision ): revision is MissingRevision {
+	return !!( revision as any ).invalid;
+}
+
+/**
+ * @return `true` if a revision is valid and not missing.
+ * @param revision
+ */
+export function isValidRevision( revision: Revision ): revision is ExpandedRevision {
+	return !isMissingRevision( revision ) && !isInvalidRevision( revision );
+}
+
+export type Revision =
+	| ExpandedRevision
+	| MissingRevision
+	| InvalidRevision;
