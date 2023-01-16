@@ -100,7 +100,7 @@ export default class RevisionExpander {
 		);
 
 		for ( const response of primaryRevisions ) {
-			for ( const page of response.query.pages ) {
+			for ( const page of ( response.query.pages ?? [] ) ) {
 				for ( const rev of page.revisions ) {
 					revisionBank[ rev.revid ] = Object.assign(
 						rev,
@@ -159,7 +159,9 @@ export default class RevisionExpander {
 		revisions: number[],
 		props: string[]
 	): Promise<ApiQueryRevisionResponse[]> {
-		Dispatch.i.log.trace( `Querying data for ${revisions.length} revisions...` );
+		Dispatch.i.log.trace( `Querying data for ${revisions.length} revisions (props=${
+			props.join( '|' )
+		})...` );
 		return await this.client.massQuery( {
 			action: 'query',
 			format: 'json',
