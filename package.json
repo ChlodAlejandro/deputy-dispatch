@@ -7,8 +7,9 @@
         "node": ">=16.0.0"
     },
     "scripts": {
-        "dev": "concurrently \"nodemon\" \"nodemon --watch src/routes -e ts --exec \\\"npm run build:tsoa\\\"\"",
-        "start": "ts-node src/index.ts",
+        "dev": "concurrently \"nodemon --exec \\\"npm run start:dev\\\"\" \"nodemon --watch src/routes -e ts --exec \\\"npm run build:tsoa\\\"\"",
+        "start": "ts-node --transpile-only src/index.ts",
+        "start:dev": "ts-node src/index.ts",
         "build": "tsc",
         "build:tsoa": "tsoa spec-and-routes"
     },
