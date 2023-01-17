@@ -213,10 +213,18 @@ export function start() {
 	Dispatch.i.start();
 
 	process.on( 'uncaughtException', ( err ) => {
-		console.error( 'Uncaught exception: ' + err.message, err );
+		try {
+			Dispatch.i.log.error( 'Uncaught exception: ' + err.message, err );
+		} catch ( e ) {
+			console.error( err );
+		}
 	} );
 	process.on( 'unhandledRejection', ( err ) => {
-		console.error( 'Unhandled rejection.', err );
+		try {
+			Dispatch.i.log.error( 'Unhandled rejection.', err );
+		} catch ( e ) {
+			console.error( err );
+		}
 	} );
 
 	process.once( 'SIGINT', function () {
