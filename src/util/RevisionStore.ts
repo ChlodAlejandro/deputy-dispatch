@@ -1,5 +1,7 @@
-import WikimediaStream, { WikimediaEventStream } from 'wikimedia-streams';
+import WikimediaStream, { EventSourceState, WikimediaEventStream } from 'wikimedia-streams';
 import { isValidRevision, Revision } from '../models/Revision';
+import Dispatch from '../Dispatch';
+import toolUserAgent from './func/toolUserAgent';
 
 /**
  * Like a map but for revisions. Once initialized, this will hook onto a Wikimedia
@@ -19,10 +21,14 @@ export default class RevisionStore extends Map<number, Revision> {
 	 * as it is assumed that the user has access to all revisions. Note that this
 	 * can cause suppressed data to leak out into user interfaces. Use sparingly
 	 * and only behind authenticated interfaces.
+	 * @param autostart
 	 * @param {...any} args Arguments to be passed to the Map constructor
 	 */
-	constructor( private readonly privileged?: boolean, ...args: any[] ) {
+	constructor( private readonly privileged?: boolean, autostart?: boolean, ...args: any[] ) {
 		super( ...args );
+		if ( autostart ) {
+			this.startStream();
+		}
 	}
 
 	stream: WikimediaStream;
@@ -31,10 +37,11 @@ export default class RevisionStore extends Map<number, Revision> {
 	 * @inheritDoc
 	 */
 	set( key: number, value: Revision ): this {
-		if ( !this.stream || this.stream.eventSource.readyState !== 1 ) {
-			throw new Error( 'Cannot set revision while stream is closed' );
+		if ( !this.stream || this.stream.status !== EventSourceState.Open ) {
+			Dispatch.i.log.warn( `Cannot set revision ${key} while stream is closed.` );
+		} else {
+			super.set( key, value );
 		}
-		super.set( key, value );
 		return this;
 	}
 
@@ -46,7 +53,11 @@ export default class RevisionStore extends Map<number, Revision> {
 			this.stream = new WikimediaStream( [
 				!this.privileged && 'mediawiki.revision-visibility-change',
 				'mediawiki.revision-tags-change'
-			].filter( v => !!v ) as WikimediaEventStream[] );
+			].filter( v => !!v ) as WikimediaEventStream[], {
+				headers: {
+					'User-Agent': toolUserAgent
+				}
+			} );
 			if ( !this.privileged ) {
 				this.stream.on( 'mediawiki.revision-visibility-change', ( data ) => {
 					const oldRev = this.get( data.rev_id );
@@ -70,7 +81,12 @@ export default class RevisionStore extends Map<number, Revision> {
 				}
 			} );
 		}
-		this.stream.open();
+		if (
+			this.stream.status !== EventSourceState.Open &&
+			this.stream.status !== EventSourceState.Connecting
+		) {
+			this.stream.open();
+		}
 	}
 
 	/**

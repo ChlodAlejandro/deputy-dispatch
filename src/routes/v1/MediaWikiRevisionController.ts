@@ -50,13 +50,13 @@ export class MediaWikiRevisionController extends Controller {
 			params: [ `${MediaWikiRevisionController.GET_LIMIT}` ]
 		} );
 
-	revisionStore = new RevisionStore();
+	revisionStore = new RevisionStore( false, true );
 	/**
 	 * Administrator-only revision store. Requires authentication for access.
 	 *
 	 * TODO: Unused. Use when authenticate is developed.
 	 */
-	privilegedRevisionStore = new RevisionStore( true );
+	privilegedRevisionStore = new RevisionStore( true, true );
 
 	/**
 	 * Get Deputy-decorated revisions from a list of revision IDs.
@@ -99,12 +99,14 @@ export class MediaWikiRevisionController extends Controller {
 	public async getRevisionsPost(
 		@Request() req: express.Request,
 		@Path() wiki: string,
-		@BodyProp() revisions: string|string[]
+		@BodyProp() revisions: number|number[]|string|string[]
 	): Promise<{ version: 1, revisions: Record<number, Revision> } | ErrorResponse> {
 		return this.getRevisions(
 			req,
 			wiki,
-			typeof revisions === 'string' ? revisions.split( '|' ) : revisions
+			typeof revisions === 'string' ?
+				revisions.split( '|' ) :
+				( Array.isArray( revisions ) ? revisions : [ revisions ] )
 		);
 	}
 
@@ -117,7 +119,7 @@ export class MediaWikiRevisionController extends Controller {
 	async getRevisions(
 		req: express.Request,
 		wiki: string,
-		revisions: string[]
+		revisions: ( string|number )[]
 	): Promise<{ version: 1, revisions: Record<number, Revision> } | ErrorResponse> {
 		const site = await WikimediaSiteMatrix.i.getDbName( wiki );
 
@@ -129,7 +131,7 @@ export class MediaWikiRevisionController extends Controller {
 		}
 
 		// Clean up revisions array
-		revisions = revisions.filter( v => !!v && v.length > 0 );
+		revisions = revisions.filter( v => !!v && ( typeof v === 'number' || v.length > 0 ) );
 
 		if ( revisions.length === 0 ) {
 			this.setStatus( 422 );
@@ -185,8 +187,10 @@ export class MediaWikiRevisionController extends Controller {
 			Object.keys( processingRevisions ).length
 		} total.` );
 		for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
-			// At this point, the promises are done. The await takes it out of their shell.
-			finalRevisions[ revision ] = await promise;
+			// At this point, the promises are done. The "await" takes it out of their shell.
+			const expandedRevision = await promise;
+			finalRevisions[ +revision ] = expandedRevision;
+			this.revisionStore.set( +revision, expandedRevision );
 		}
 
 		return { version: 1, revisions: finalRevisions };

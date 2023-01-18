@@ -11,7 +11,7 @@ if ( process.env.HOME ) {
 }
 dotenv.config( {
 	override: true,
-	path: '../.env'
+	path: path.resolve( __dirname, '..', '.env' )
 } );
 
 axios.defaults.headers.common[ 'User-Agent' ] = toolUserAgent;
