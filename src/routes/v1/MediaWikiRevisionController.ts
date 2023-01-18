@@ -139,7 +139,7 @@ export class MediaWikiRevisionController extends Controller {
 				req.params.errorformat as ErrorFormat
 			);
 		}
-		if ( revisions.length > 50 ) {
+		if ( revisions.length > 50 && req.method === 'GET' ) {
 			this.setStatus( 403 );
 			return MediaWikiRevisionController.errorMethodLimited.build(
 				req.params.errorformat as ErrorFormat
