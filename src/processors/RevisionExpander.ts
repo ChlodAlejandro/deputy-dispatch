@@ -139,8 +139,12 @@ export default class RevisionExpander {
 		}
 
 		for ( const revision of Object.values( revisionBank ) ) {
-			if ( isValidRevision( revision ) && revision.parentid ) {
-				revision.diffsize = revision.size - parentRevisionSizes[ revision.parentid ];
+			if ( isValidRevision( revision ) ) {
+				if ( revision.parentid ) {
+					revision.diffsize = revision.size - parentRevisionSizes[ revision.parentid ];
+				} else {
+					revision.diffsize = revision.size;
+				}
 			}
 		}
 
