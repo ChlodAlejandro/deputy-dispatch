@@ -140,6 +140,9 @@ export default class Dispatch {
 		this.log.debug( 'Registering middleware (routes)...' );
 		RegisterRoutes( this.app );
 
+		// Static files handler
+		this.app.use( '/', express.static( path.join( __dirname, 'public' ) ) );
+
 		// Register handler for missing parameters, etc.
 		this.log.debug( 'Registering middleware (errors)...' );
 		this.app.use( function errorHandler(
