@@ -31,6 +31,7 @@ export default class RevisionStore extends Map<number, Revision> {
 		}
 	}
 
+	readonly storeId = Math.random().toString( 16 ).slice( 2, 8 );
 	stream: WikimediaStream;
 
 	/**
@@ -57,6 +58,22 @@ export default class RevisionStore extends Map<number, Revision> {
 				headers: {
 					'User-Agent': toolUserAgent
 				}
+			} );
+			this.stream.on( 'open', () => {
+				Dispatch.i.log.info( 'Wikimedia stream opened.', {
+					stream: this.storeId
+				} );
+			} );
+			this.stream.on( 'close', () => {
+				Dispatch.i.log.info( 'Wikimedia stream closed.', {
+					stream: this.storeId
+				} );
+			} );
+			this.stream.on( 'error', ( error ) => {
+				Dispatch.i.log.info( 'Encountered error on Wikimedia stream', {
+					error,
+					stream: this.storeId
+				} );
 			} );
 			if ( !this.privileged ) {
 				this.stream.on( 'mediawiki.revision-visibility-change', ( data ) => {

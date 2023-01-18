@@ -50,13 +50,13 @@ export class MediaWikiRevisionController extends Controller {
 			params: [ `${MediaWikiRevisionController.GET_LIMIT}` ]
 		} );
 
-	revisionStore = new RevisionStore( false, true );
+	static revisionStore = new RevisionStore( false, true );
 	/**
 	 * Administrator-only revision store. Requires authentication for access.
 	 *
 	 * TODO: Unused. Use when authenticate is developed.
 	 */
-	privilegedRevisionStore = new RevisionStore( true, true );
+	static privilegedRevisionStore = new RevisionStore( true, true );
 
 	/**
 	 * Get Deputy-decorated revisions from a list of revision IDs.
@@ -167,7 +167,8 @@ export class MediaWikiRevisionController extends Controller {
 					invalid: true
 				};
 			} else if ( RevisionStore ) {
-				const revision = await this.revisionStore.get( revisionId );
+				// TODO: Use privileged store here, based on auth.
+				const revision = await MediaWikiRevisionController.revisionStore.get( revisionId );
 				if ( revision ) {
 					finalRevisions[ revisionId ] = revision;
 				} else {
@@ -176,21 +177,24 @@ export class MediaWikiRevisionController extends Controller {
 			}
 		}
 
-		// TODO: User authentication. In such case, use WikimediaSessionManager to create a
-		// client object from scratch. Whether this object should be persisted... /shrug
-		const client = await WikimediaSessionManager.getClient( site );
-		Dispatch.i.log.debug( 'mwn for default client ready' );
-		const expander = new RevisionExpander( client );
-		const processingRevisions = expander.queue( forProcessing );
-		await Promise.all( Object.values( processingRevisions ) );
-		Dispatch.i.log.debug( `Revisions processed... ${
-			Object.keys( processingRevisions ).length
-		} total.` );
-		for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
-			// At this point, the promises are done. The "await" takes it out of their shell.
-			const expandedRevision = await promise;
-			finalRevisions[ +revision ] = expandedRevision;
-			this.revisionStore.set( +revision, expandedRevision );
+		// Skip processing if there's nothing to process.
+		if ( forProcessing.length > 0 ) {
+			// TODO: User authentication. In such case, use WikimediaSessionManager to create a
+			// client object from scratch. Whether this object should be persisted... /shrug
+			const client = await WikimediaSessionManager.getClient( site );
+			Dispatch.i.log.debug( 'mwn for default client ready' );
+			const expander = new RevisionExpander( client );
+			const processingRevisions = expander.queue( forProcessing );
+			await Promise.all( Object.values( processingRevisions ) );
+			Dispatch.i.log.debug( `Revisions processed... ${
+				Object.keys( processingRevisions ).length
+			} total.` );
+			for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
+				// At this point, the promises are done. The "await" takes it out of their shell.
+				const expandedRevision = await promise;
+				finalRevisions[ +revision ] = expandedRevision;
+				MediaWikiRevisionController.revisionStore.set( +revision, expandedRevision );
+			}
 		}
 
 		return { version: 1, revisions: finalRevisions };
