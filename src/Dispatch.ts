@@ -108,7 +108,7 @@ export default class Dispatch {
 				// Allow Wikimedia sites to use Dispatch
 				const origin = req.header( 'Origin' );
 				if ( origin && await WikimediaSiteMatrix.i.getOrigin( origin ) ) {
-					res.header( 'Access-Control-Allow-Origin' );
+					res.header( 'Access-Control-Allow-Origin', '*' );
 					res.header( 'Vary', 'Origin' );
 				}
 			} catch ( e ) {
