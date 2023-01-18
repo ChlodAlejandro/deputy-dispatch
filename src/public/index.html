@@ -26,14 +26,38 @@
             a:not(:hover) {
                 text-decoration: none;
             }
+
+            h1 {
+                border-bottom: 1px solid lightgray;
+            }
+
+            a, a:visited {
+                color: #36b;
+            }
+
+            @media screen and (prefers-color-scheme: dark) {
+                body {
+                    background-color: #000110;
+                    color: white;
+                }
+
+                a, a:visited {
+                    color: #7c84ff;
+                }
+
+                a:active {
+                    color: #ff4747;
+                }
+            }
         </style>
 
         <link rel="stylesheet" type="text/css" href="https://tools-static.wmflabs.org/cdnjs/ajax/libs/oojs-ui/0.45.0/oojs-ui-wikimediaui.min.css">
     </head>
     <body>
         <main>
-            <img class="logo" width="70" height="70" src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Deputy_Dispatch_logo.svg" alt="Deputy Dispatch logo">
+            <h1>Dispatch</h1>
 
+            <img class="logo" width="70" height="70" src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Deputy_Dispatch_logo.svg" alt="Deputy Dispatch logo">
             <p>
                 <b>Dispatch</b> is a Node.js+Express webserver that exposes API endpoints that
                 processes large masses of data from Wikimedia wikis for easier consumption by
@@ -44,7 +68,7 @@
             </p>
 
             <span class="oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement oo-ui-buttonElement-framed oo-ui-iconElement oo-ui-labelElement oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive oo-ui-buttonWidget"><a class="oo-ui-buttonElement-button" role="button" tabindex="0" rel="nofollow" href="/docs"><span class="oo-ui-iconElement-icon oo-ui-icon-article oo-ui-image-invert"></span><span class="oo-ui-labelElement-label">Open the documentation</span><span class="oo-ui-indicatorElement-indicator oo-ui-indicatorElement-noIndicator"></span></a></span><br/>
-            <span class="oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement oo-ui-buttonElement-framed oo-ui-iconElement oo-ui-labelElement oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive oo-ui-buttonWidget"><a class="oo-ui-buttonElement-button" role="button" tabindex="0" rel="nofollow" href="https://w.wiki/5k$q"><span class="oo-ui-iconElement-icon oo-ui-icon-settings oo-ui-image-invert"></span><span class="oo-ui-labelElement-label">Get the tool</span><span class="oo-ui-indicatorElement-indicator oo-ui-indicatorElement-noIndicator"></span></a></span>
+            <span class="oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement oo-ui-buttonElement-framed oo-ui-iconElement oo-ui-labelElement oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive oo-ui-buttonWidget"><a class="oo-ui-buttonElement-button" role="button" tabindex="0" rel="nofollow" href="https://w.wiki/5k$q"><span class="oo-ui-iconElement-icon oo-ui-icon-settings oo-ui-image-invert"></span><span class="oo-ui-labelElement-label">Get Deputy</span><span class="oo-ui-indicatorElement-indicator oo-ui-indicatorElement-noIndicator"></span></a></span>
         </main>
     </body>
 </html>

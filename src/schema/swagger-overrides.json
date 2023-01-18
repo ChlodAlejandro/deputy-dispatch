@@ -1,0 +1,17 @@
+{
+    "info": {
+        "title": "Dispatch",
+        "description": "Webserver responsible for centralizing and optimizing data used by Deputy, a wiki copyright infringement investigation tool. For more information about the script, see [here](https://w.wiki/5k$q).",
+        "license": {
+            "name": "Apache License, Version 2.0",
+            "url": "https://www.apache.org/licenses/LICENSE-2.0"
+
+        },
+        "termsOfService": "",
+        "contact": {
+            "name": "Chlod",
+            "url": "https://en.wikipedia.org/wiki/User:Chlod",
+            "email": "wiki@chlod.net"
+        }
+    }
+}

@@ -86,7 +86,7 @@ export default class Dispatch {
 	/**
 	 * Sets up the Express server.
 	 */
-	setupExpress() {
+	async setupExpress() {
 		this.log.info( 'Setting up Express server...' );
 		this.app = express();
 		this.app.disable( 'x-powered-by' );
@@ -127,14 +127,20 @@ export default class Dispatch {
 
 		// Documentation endpoints
 		this.log.debug( 'Registering middleware (docs)...' );
-		this.app.use( '/docs', swaggerUi.serve, async (
-			req: express.Request,
-			res: express.Response
-		) => {
-			return res.send(
-				swaggerUi.generateHTML( await import( '../gen/swagger.json' ) )
-			);
-		} );
+		const swaggerSchema: any = Object.assign(
+			{},
+			...( await Promise.all( [
+				import( '../gen/swagger.json' ),
+				import( './schema/swagger-overrides.json' )
+			] ) )
+		);
+		swaggerSchema.info.version = packageInfo.version;
+		this.app.use( '/docs', swaggerUi.serve, swaggerUi.setup(
+			swaggerSchema,
+			{
+				customCss: 'img[alt="Swagger UI"] { content: url("/favicon.ico") }'
+			}
+		) );
 
 		// Register actual endpoint routes
 		this.log.debug( 'Registering middleware (routes)...' );
@@ -192,7 +198,7 @@ export default class Dispatch {
 		this.log.info( `Deputy Dispatch v${ packageInfo.version } is starting...` );
 
 		this.verifyEnvironment();
-		this.setupExpress();
+		await this.setupExpress();
 
 		const port = +( process.env.DISPATCH_PORT || process.env.PORT || 8080 );
 		this.server = this.app.listen( port, () => {
