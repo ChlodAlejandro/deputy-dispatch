@@ -57,7 +57,7 @@ export default class RevisionExpander {
 			forProcessing.get( +id ).resolver( revisionData );
 			delete this.revisionQueue[ +id ];
 		}
-	} ).bind( this ) );
+	} ).bind( this ), () => Object.keys( this.revisionQueue ).length > 0 );
 
 	/**
 	 * Queues a set of revisions into the expander. The expander will request

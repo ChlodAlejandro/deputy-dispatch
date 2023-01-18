@@ -10,10 +10,17 @@
  * Since there is no guarantee tha the function actually runs, the result is
  * always discarded.
  *
+ * If a condition function is provided, the staggering function can also be set
+ * to re-call itself if the condition returns true.
+ *
  * @param func The function to stagger
+ * @param condition A function to use as the condition to run
  * @return The staggered function
  */
-export default function stagger( func: ( ...args: any[] ) => any ): ( ( ...args: any[] ) => void ) {
+export default function stagger(
+	func: ( ...args: any[] ) => any,
+	condition?: () => boolean
+): ( ( ...args: any[] ) => void ) {
 	let running = false;
 	let willRecall = false;
 	const runner = async function ( ...args: any[] ) {
@@ -26,7 +33,7 @@ export default function stagger( func: ( ...args: any[] ) => any ): ( ( ...args:
 		}
 		running = true;
 		await runner();
-		if ( willRecall ) {
+		if ( willRecall || ( condition?.() ?? false ) ) {
 			setTimeout( runner, 0 );
 			willRecall = false;
 		}
