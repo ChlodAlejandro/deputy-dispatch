@@ -14,7 +14,7 @@
                 margin: 0 0 2em 2em;
             }
 
-            main {
+            main, footer {
                 max-width: 700px;
                 margin: 0 auto;
             }
@@ -34,6 +34,12 @@
             a, a:visited {
                 color: #36b;
             }
+            
+            footer {
+                margin-top: 1em;
+                font-size: small;
+                color: #606060;
+            }
 
             @media screen and (prefers-color-scheme: dark) {
                 body {
@@ -47,6 +53,10 @@
 
                 a:active {
                     color: #ff4747;
+                }
+                
+                footer {
+                    color: gray;
                 }
             }
         </style>
@@ -70,5 +80,10 @@
             <span class="oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement oo-ui-buttonElement-framed oo-ui-iconElement oo-ui-labelElement oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive oo-ui-buttonWidget"><a class="oo-ui-buttonElement-button" role="button" tabindex="0" rel="nofollow" href="/docs"><span class="oo-ui-iconElement-icon oo-ui-icon-article oo-ui-image-invert"></span><span class="oo-ui-labelElement-label">Open the documentation</span><span class="oo-ui-indicatorElement-indicator oo-ui-indicatorElement-noIndicator"></span></a></span><br/>
             <span class="oo-ui-widget oo-ui-widget-enabled oo-ui-buttonElement oo-ui-buttonElement-framed oo-ui-iconElement oo-ui-labelElement oo-ui-flaggedElement-primary oo-ui-flaggedElement-progressive oo-ui-buttonWidget"><a class="oo-ui-buttonElement-button" role="button" tabindex="0" rel="nofollow" href="https://w.wiki/5k$q"><span class="oo-ui-iconElement-icon oo-ui-icon-settings oo-ui-image-invert"></span><span class="oo-ui-labelElement-label">Get Deputy</span><span class="oo-ui-indicatorElement-indicator oo-ui-indicatorElement-noIndicator"></span></a></span>
         </main>
+        <footer>
+            Dispatch is a <a href="https://w.wiki/5k$q">Deputy</a> project. Development is done in tandem by <a href="https://en.wikipedia.org/wiki/User:Chlod">User:Chlod</a>.<br/>
+            Dispatch and Deputy are licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache License 2.0</a>.<br/>
+            Dispatch runs on <a href="https://wikitech.wikimedia.org/wiki/Portal:Toolforge">Toolforge</a>, a part of <a href="https://wikitech.wikimedia.org/wiki/Help:Cloud_Services_Introduction">Wikimedia Cloud Services</a>.
+        </footer>
     </body>
 </html>
