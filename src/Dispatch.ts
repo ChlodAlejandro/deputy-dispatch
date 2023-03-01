@@ -11,6 +11,7 @@ import ErrorResponseBuilder, { ErrorFormat } from './models/ErrorResponse';
 import { RegisterRoutes } from '../gen/routes';
 import swaggerUi from 'swagger-ui-express';
 import compression from 'compression';
+import DatabaseConnection from './database/DatabaseConnection';
 
 /**
  * Main class for Dispatch.
@@ -23,9 +24,20 @@ export default class Dispatch {
 	public static readonly i = new Dispatch();
 
 	/**
+	 * The path to the app root folder.
+	 */
+	static readonly rootPath = path.resolve( __dirname, '..' );
+
+	/**
 	 * The path to the log folder.
 	 */
-	static readonly logPath = path.resolve( __dirname, '..', '.logs' );
+	static readonly logPath = path.resolve( Dispatch.rootPath, '.logs' );
+
+	/**
+	 * Whether we're running on Toolforge.
+	 */
+	static readonly toolforge = path.resolve( Dispatch.rootPath ) ===
+		'/data/project/deputy/www/js';
 
 	/**
 	 * The Zoomiebot log. Logs to the bot `.logs` folder and stdout.
@@ -56,7 +68,7 @@ export default class Dispatch {
 		this.log = Logger.createLogger( {
 			name: 'Dispatch',
 			level: process.env.NODE_ENV === 'development' ? 10 : 30,
-			stream: process.env.ZOOMIE_RAWLOG ? process.stdout : bunyanFormat( {
+			stream: process.env.DISPATCH_RAWLOG ? process.stdout : bunyanFormat( {
 				outputMode: 'long',
 				levelInString: true
 			}, process.stdout )
@@ -102,7 +114,6 @@ export default class Dispatch {
 		this.log.debug( 'Registering middleware (access control)...' );
 		this.app.use( async function ( req, res, next ) {
 			res.header( 'Server', `${ packageInfo.name }/${ packageInfo.version }` );
-			res.header( 'X-Clacks-Overhead', 'GNU Terry Pratchett' );
 
 			try {
 				// Allow Wikimedia sites to use Dispatch
@@ -124,6 +135,12 @@ export default class Dispatch {
 
 			next();
 		} );
+		if ( !Dispatch.toolforge ) {
+			this.app.use( function ( req, res, next ) {
+				res.header( 'X-Clacks-Overhead', 'GNU Terry Pratchett' );
+				next();
+			} );
+		}
 
 		// Documentation endpoints
 		this.log.debug( 'Registering middleware (docs)...' );
@@ -198,8 +215,10 @@ export default class Dispatch {
 	async start() {
 		this.setupLogger();
 		this.log.info( `Deputy Dispatch v${ packageInfo.version } is starting...` );
+		this.log.info( `Toolforge mode: ${Dispatch.toolforge ? 'ON' : 'OFF'}` );
 
 		this.verifyEnvironment();
+		await DatabaseConnection.verifyEnvironment();
 		await this.setupExpress();
 
 		const port = +( process.env.DISPATCH_PORT || process.env.PORT || 8080 );
