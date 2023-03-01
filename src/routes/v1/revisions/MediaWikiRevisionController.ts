@@ -7,20 +7,21 @@ import {
 	Controller,
 	SuccessResponse,
 	Request,
-	Post, BodyProp
+	Post, BodyProp, Tags
 } from 'tsoa';
-import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../models/ErrorResponse';
-import { Revision } from '../../models/Revision';
-import { WikimediaSiteMatrix } from '../../util/WikimediaSiteMatrix';
+import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../../models/ErrorResponse';
+import { Revision } from '../../../models/Revision';
+import { WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import express from 'express';
-import RevisionStore from '../../util/RevisionStore';
-import RevisionExpander from '../../processors/RevisionExpander';
-import WikimediaSessionManager from '../../processors/WikimediaSessionManager';
-import Dispatch from '../../Dispatch';
+import RevisionStore from '../../../util/RevisionStore';
+import RevisionExpander from '../../../processors/RevisionExpander';
+import WikimediaSessionManager from '../../../processors/WikimediaSessionManager';
+import Dispatch from '../../../Dispatch';
 
 /**
  *
  */
+@Tags( 'Revisions' )
 @Route( 'v1/revisions' )
 export class MediaWikiRevisionController extends Controller {
 

@@ -21,6 +21,35 @@ This version is backwards compatible with API version `v1`.
 
 * v1 (`/v1/`) – *current version*
 
+## Contributing
+You'll need a live connection to the Toolforge Replica DBs to work on Dispatch
+smoothly. You can use the following command to forward the ports automagically.
+
+```bash
+ssh -L 4711:enwiki.web.db.svc.wikimedia.cloud:3306 dev.toolforge.org -Nv
+```
+
+Dispatch will check if it's on Toolforge and use the appropriate port (`tcp/3306`)
+if so. Otherwise, it will check the port above (`tcp/4711`) first. Note that SQL
+credentials are still required, and Dispatch will attempt to look for them on:
+* the user's home directory (`~/replica.my.cnf`)
+* the current working directory (`$(PWD)/replica.my.cnf`)
+  * The current working directory is the `www/js` folder in the Dispatch tool's
+    home, as this is where Dispatch resides.
+* environment variables
+  * `DISPATCH_TOOLSDB_USER` for the username
+  * `DISPATCH_TOOLSDB_PASS` for the password
+  * `DISPATCH_TOOLSDB_HOST` for the ToolsDB SQL server host
+    * This is set to the correct value when running on Toolforge. If `NODE_ENV` == "development",
+      it will be set to `localhost` by default.
+  * `DISPATCH_TOOLSDB_HOST_{DBNAME}` for the Replicas 
+    SQL server host, where `{DBNAME}` is the database name in uppercase (e.g. `ENWIKI`)
+    * This is set to the correct value when running on Toolforge. If `NODE_ENV` == "development",
+      it will be set to `localhost` by default.
+  * `DISPATCH_TOOLSDB_PORT` for the SQL server port
+    * This is set to the correct value when running on Toolforge. If `NODE_ENV` == "development",
+      it will look for `DISPATCH_TOOLSDB_PORT_{DBNAME}`.
+
 ## Licensing
 
 ```
