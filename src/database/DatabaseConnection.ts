@@ -4,6 +4,7 @@ import Dispatch from '../Dispatch';
 import os from 'os';
 import fs from 'fs/promises';
 import ini from 'ini';
+import attachRevisionQueryBuilderExtensions from './extensions/RevisionQueryBuilder';
 
 /**
  * Toolforge database connection handler.
@@ -44,6 +45,14 @@ export default class DatabaseConnection {
 			Dispatch.i.log.info( 'This includes many API endpoints that rely on the DB.' );
 			Dispatch.i.log.info( 'Provide an SQL user/password or a valid replica.my.cnf.' );
 			Dispatch.i.log.info( 'See the README for more information.' );
+		}
+
+		try {
+			attachRevisionQueryBuilderExtensions();
+		} catch ( e ) {
+			Dispatch.i.log.error(
+				'Failed to attach Knex QueryBuilder extensions. Queries will fail!'
+			);
 		}
 	}
 
