@@ -55,6 +55,16 @@ export interface RevisionData {
 		 */
 		user: boolean
 	};
+
+	// Flags for revision deletion
+	/**
+	 * `true` if the comment for this revision is hidden.
+	 */
+	commenthidden?: boolean;
+	/**
+	 * `true` if the user for this revision is hidden.
+	 */
+	userhidden?: boolean;
 }
 
 /**

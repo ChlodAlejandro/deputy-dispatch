@@ -1,12 +1,27 @@
-import { BodyProp, Get, Path, Post, Request, Response, Route, SuccessResponse, Tags } from 'tsoa';
+import {
+	BodyProp,
+	Get,
+	Path,
+	Post,
+	Query,
+	Request,
+	Response,
+	Route,
+	SuccessResponse,
+	Tags
+} from 'tsoa';
 import AsyncTaskController, {
 	AsyncTask,
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
-import Dispatch from '../../../Dispatch';
-import { DeletedRevision } from '../../../processors/UserDeletedRevisionFetcher';
+import { DeletedRevision, TextDeletedRevision } from '../../../models/DeletedRevision';
+import UserDeletedRevisionFetcher from '../../../processors/UserDeletedRevisionFetcher';
+import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
+import ReplicaConnection from '../../../database/ReplicaConnection';
+import TitleFactory from '../../../util/Title';
+import Cache from 'stale-lru-cache';
 
 interface UserDeletedRevisionsResponse {
 	revisions: Record<number, DeletedRevision>;
@@ -18,7 +33,19 @@ interface UserDeletedRevisionsResponse {
 @Tags( 'User' )
 @Route( 'v1/user/deleted-revisions' )
 export class UserDeletedRevisions
-	extends AsyncTaskController<{ user: string }, UserDeletedRevisionsResponse> {
+	extends AsyncTaskController<{ site: SiteMatrixSite, user: string },
+		UserDeletedRevisionsResponse> {
+
+	static readonly errorUnsupportedWiki = new ErrorResponseBuilder()
+		.add( 'unsupportedwiki', {
+			text: 'This wiki is not a supported Wikimedia wiki',
+			key: 'apierror-unsupportedwiki'
+		} );
+
+	static readonly requestCache = new Cache<string, TaskInformation>( {
+		maxSize: 100,
+		maxAge: 3600 // 1 hour
+	} );
 
 	/**
 	 * @inheritDoc
@@ -31,25 +58,47 @@ export class UserDeletedRevisions
 	 *
 	 * @param options
 	 * @param options.user
+	 * @param options.site
 	 * @param task
 	 */
 	async process(
-		options: { user: string },
+		options: { site: SiteMatrixSite, user: string },
 		task: AsyncTask<UserDeletedRevisionsResponse>
 	): Promise<void> {
-		// eslint-disable-next-line prefer-const
-		let x;
-		const runTask = () => {
-			task.updateProgress( task.progress + ( 1 / 60 ) );
-			Dispatch.i.log.trace( 'PROGRESS: ' + task.progress );
+		const udrf = new UserDeletedRevisionFetcher( options.site, 'web' );
+		const conn = await ReplicaConnection.connect( options.site, 'web' );
+		const Title = await TitleFactory.get( options.site );
+		const usernameTitle =
+			new Title( options.user, Title.nameIdMap.user );
 
-			if ( task.progress >= 1 ) {
-				task.finish( null );
-				clearInterval( x );
+		task.updateProgress( 0 );
+		const deletedRevsQueryStart = Date.now();
+		const deletedRevs = await udrf.getUserDeletedRevisions( conn, Title, usernameTitle );
+		const deletedRevsQueryDuration = Date.now() - deletedRevsQueryStart;
+
+		// Give small bump to indicate something is being done
+		task.updateProgress( 0.01 );
+
+		const upgradeBatchSize = 25;
+		const upgradeBatchCount = deletedRevs.length / upgradeBatchSize;
+		const upgradeStart = Date.now();
+		let upgradeDuration = null;
+		for ( let i = 0; i < Math.ceil( upgradeBatchCount ); i++ ) {
+			const batch = deletedRevs.slice( i * upgradeBatchSize, ( i + 1 ) * upgradeBatchSize );
+			await udrf.upgradeDeletedRevisions( conn, Title, batch );
+			if ( upgradeDuration == null ) {
+				upgradeDuration = Date.now() - upgradeStart;
 			}
-		};
+			task.updateProgress(
+				( deletedRevsQueryDuration + ( upgradeDuration * ( i + 1 ) ) ) /
+				( deletedRevsQueryDuration + ( upgradeBatchCount * upgradeDuration ) )
+			);
+		}
 
-		x = setInterval( runTask, 1000 );
+		// All batches done!
+		task.finish( {
+			revisions: deletedRevs as TextDeletedRevision[]
+		} );
 	}
 
 	/**
@@ -60,16 +109,38 @@ export class UserDeletedRevisions
 	 * you must get the final result on `:id`).
 	 *
 	 * @param req The request object
+	 * @param bypassCache Whether to skip the cache or not
 	 * @param user The username of the user
+	 * @param wiki The wiki to query for
 	 * @return Relevant task information
 	 */
 	@Post()
 	@SuccessResponse( 202, 'Accepted' )
-	public run(
+	public async run(
 		@Request() req: express.Request,
-		@BodyProp() user: string
-	): TaskInformation {
-		const task = this.runTask( { user } );
+		@Query() bypassCache: boolean = false,
+		@BodyProp() user: string,
+		@BodyProp() wiki: string
+	): Promise<TaskInformation | ErrorResponse> {
+		const site = await WikimediaSiteMatrix.i.getDbName( wiki );
+		if ( !site ) {
+			this.setStatus( 400 );
+			return UserDeletedRevisions.errorUnsupportedWiki.build();
+		}
+
+		const cacheKey = JSON.stringify( { user, wiki } );
+		if (
+			UserDeletedRevisions.requestCache.has( cacheKey ) &&
+			!UserDeletedRevisions.requestCache.isStale( cacheKey ) &&
+			!bypassCache
+		) {
+			return this.handleProgressRequest(
+				req, UserDeletedRevisions.requestCache.get( cacheKey ).id
+			);
+		}
+
+		const task = this.runTask( { site, user } );
+		UserDeletedRevisions.requestCache.set( cacheKey, task );
 		this.setStatus( 202 );
 		this.setHeader( 'Location', `${ task.id }/progress` );
 		return this.handleProgressRequest( req, task.id ) as TaskInformation;

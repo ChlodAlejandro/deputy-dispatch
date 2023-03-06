@@ -1,120 +1,24 @@
-import { PartialPartial } from '../util/PartialPartial';
-import { ExpandedRevision } from '../models/Revision';
 import { SiteMatrixSite } from '../util/WikimediaSiteMatrix';
-import DatabaseRevisionFetcher from './DatabaseRevisionFetcher';
 import TitleFactory from '../util/Title';
-import dbTimestamp from '../util/func/dbTimestamp';
+import dbTimestamp from '../database/util/dbTimestamp';
+import ReplicaConnection from '../database/ReplicaConnection';
+import {
+	DeletionFlags,
+	DeletionInfo,
+	PossibleDeletedRevision,
+	RevisionRecordDeletionConstants,
+	TextDeletedRevision
+} from '../models/DeletedRevision';
+import { MwnTitle } from 'mwn';
+import type { Knex } from 'knex';
+import { MwnTitleStatic } from 'mwn/build/title';
+import dbString from '../database/util/dbString';
+import DatabaseRevisionFetcher from './DatabaseRevisionFetcher';
+import phpUnserialize from 'phpunserialize';
 
-/**
- * @see https://w.wiki/6PeZ RevisionRecord#DELETED_TEXT, related
- */
-export enum RevisionRecordDeletionConstants {
-	// Content hidden (most common case for copyright violations)
-	DELETED_TEXT = 1,
-	// Edit summary hidden
-	DELETED_COMMENT = 2,
-	// User hidden
-	DELETED_USER = 4,
-	// Suppressed edit (we're unlikely to hit it, but it's included here so
-	// we can bail if we do)
-	DELETED_RESTRICTED = 8,
-}
-
-export interface DeletionFlags {
-	/**
-	 * Whether the revision content was hidden.
-	 */
-	text: boolean,
-	/**
-	 * Whether the edit summary was hidden.
-	 */
-	comment: boolean,
-	/**
-	 * Whether the editing user was hidden.
-	 */
-	user: boolean,
-	/**
-	 * Whether the edit was suppressed.
-	 */
-	restricted: boolean
-}
-
-export interface DeletionInfo {
-	flags: DeletionFlags,
-	comment: string,
-	parsedcomment: string,
-	timestamp: string,
-	user: string
-}
-
-type DeletionInfoFlagged<T extends keyof DeletionFlags> = ( Omit<DeletionInfo, 'flags'> & {
-	flags: DeletionFlags & Record<T, true>
-} )
-
-type PossibleDeletedRevision =
-	Omit<PartialPartial<ExpandedRevision, 'user' | 'comment'>, 'parsedcomment'>;
-
-export type UserDeletedRevision = PossibleDeletedRevision & {
-	user: never,
-	userhidden: true
-} & {
-	deleted: true | DeletionInfoFlagged<'user'>
-};
-export type CommentDeletedRevision = PossibleDeletedRevision & {
-	comment: never,
-	parsedcomment: never,
-	commenthidden: true
-} & {
-	deleted: true | DeletionInfoFlagged<'comment'>
-};
-export type TextDeletedRevision = PossibleDeletedRevision & {
-	texthidden: true
-} & {
-	deleted: true | DeletionInfoFlagged<'text'>
-};
-
-/**
- * A modified version of {@link ExpandedRevision} that includes information about
- * what parts of the revision is deleted and for what reason.
- *
- * Note that `parsedcomment` is not included in the main revision because a comment
- * parser is not available when making SQL-based queries.
- */
-export type DeletedRevision =
-	UserDeletedRevision |
-	CommentDeletedRevision |
-	TextDeletedRevision;
-
-/**
- * Checks if a revision is a {@link UserDeletedRevision}.
- *
- * @param rev The revision to check
- * @return `true` if the revision is a {@link UserDeletedRevision}, `false` otherwise.
- */
-export function isRevisionUserHidden( rev: DeletedRevision ): rev is UserDeletedRevision {
-	return !!( rev.user == null && ( rev as any ).userhidden && ( rev as any ).deleted.flags.user );
-}
-
-/**
- * Checks if a revision is a {@link CommentDeletedRevision}.
- *
- * @param rev The revision to check
- * @return `true` if the revision is a {@link CommentDeletedRevision}, `false` otherwise.
- */
-export function isRevisionCommentHidden( rev: DeletedRevision ): rev is CommentDeletedRevision {
-	return !!( rev.comment == null &&
-		( rev as any ).commenthidden &&
-		( rev as any ).deleted.flags.comment );
-}
-
-/**
- * Checks if a revision is a {@link TextDeletedRevision}.
- *
- * @param rev The revision to check
- * @return `true` if the revision is a {@link TextDeletedRevision}, `false` otherwise.
- */
-export function isRevisionTextHidden( rev: DeletedRevision ): rev is TextDeletedRevision {
-	return !!( ( rev as any ).texthidden && ( rev as any ).deleted.flags.text );
+declare module 'phpunserialize' {
+	// eslint-disable-next-line @typescript-eslint/no-shadow
+	export default function phpUnserialize( str: string ): any;
 }
 
 /**
@@ -143,37 +47,163 @@ export default class UserDeletedRevisionFetcher {
 	 *
 	 * @param user
 	 */
-	async fetch( user: string ) {
-		const drf = new DatabaseRevisionFetcher( this.site, this.type );
+	async fetch( user: string ): Promise<TextDeletedRevision[]> {
+		const conn = await ReplicaConnection.connect( this.site, this.type );
 		const Title = await TitleFactory.get( this.site );
-		const normalizedUsername =
-			new Title( user, Title.nameIdMap.user ).getPrefixedText();
+		const usernameTitle =
+			new Title( user, Title.nameIdMap.user );
 
-		drf.fetch( ( qb, conn ) => qb
-			.where( 'main.rev_actor', conn( 'actor_revision' )
-				.select( 'actor_id' )
-				.where( 'actor_name', normalizedUsername )
-			)
-			.andWhere( 'main.rev_deleted', '>', 0 )
-		)
-			.then( d => Promise.all( d.map( async v => ( {
-				revid: +v.rev_id,
-				parentid: +v.rev_parent_id,
-				minor: !!v.rev_minor_edit,
-				user: normalizedUsername,
-				timestamp: dbTimestamp( v.rev_timestamp ).toISOString(),
-				size: v.rev_len,
-				comment: v.comment_text ? v.comment_text.toString( 'utf8' ) : '',
-				page: {
-					id: +v.page_id,
-					title: Title.makeTitle(
-						+v.page_namespace, v.page_title.toString( 'utf8' )
-					).getPrefixedText(),
-					ns: +v.page_namespace
-				},
-				diffsize: v.rev_len - v.rev_parent_len
-			} ) ) ) )
-			.then( console.log );
+		const deletedRevs = await this.getUserDeletedRevisions( conn, Title, usernameTitle );
+		return this.upgradeDeletedRevisions( conn, Title, deletedRevs );
 	}
 
+	/**
+	 * Fetches deleted revisions by a user.
+	 *
+	 * We can assume in this case that the user is never `null` (i.e. the user
+	 * is not wiped from the replica revision table) because the revision must
+	 * have a valid actor (which, in this case, is always true).
+	 *
+	 * @param conn
+	 * @param Title
+	 * @param user The user to get
+	 */
+	async getUserDeletedRevisions( conn: Knex, Title: MwnTitleStatic, user: MwnTitle ):
+		Promise<PossibleDeletedRevision[]> {
+		return DatabaseRevisionFetcher.fetch(
+			conn, Title, ( qb ) => qb
+				.select(
+					conn.raw( `
+					(
+						SELECT GROUP_CONCAT(ctd_name SEPARATOR ",")
+						FROM change_tag
+						JOIN change_tag_def ON ctd_id = ct_tag_id
+						WHERE ct_rev_id = main.rev_id
+					) as ts_tags
+				`.replace( /[\t\r\n]/g, ' ' ) )
+				).where( 'main.rev_actor', conn( 'actor_revision' )
+					.select( 'actor_id' )
+					.where( 'actor_name', user.getMain() )
+				)
+				.andWhere( 'main.rev_deleted', '>', 0 )
+		);
+	}
+
+	/**
+	 * Upgrades deleted revisions by locating the log entry which caused the
+	 * deletion. For suppressed revisions, there is no way to determine this
+	 * information (as it is scrubbed from the Wiki Replicas), so it is set
+	 * to just `true`.
+	 *
+	 * @param conn
+	 * @param Title
+	 * @param revisions
+	 */
+	async upgradeDeletedRevisions(
+		conn: Knex,
+		Title: MwnTitleStatic,
+		revisions: ( PossibleDeletedRevision )[]
+	): Promise<TextDeletedRevision[]> {
+		const revisionIds = revisions.map( r => r.revid );
+
+		const foundLogEntries: DeletionInfo[] = await conn( 'logging_userindex' )
+			.select( [
+				'log_id',
+				'log_timestamp',
+				'log_params',
+				conn.raw( `
+					(
+						SELECT GROUP_CONCAT(ctd_name SEPARATOR ",")
+						FROM change_tag
+						JOIN change_tag_def ON ctd_id = ct_tag_id
+						WHERE ct_log_id = log_id
+					) as ts_tags
+				`.replace( /[\t\r\n]/g, ' ' ) )
+			] )
+			.withLogActor( [ 'actor_id', 'actor_name' ] )
+			.withLogComment( [ 'comment_id', 'comment_text' ] )
+			.where( 'log_type', 'delete' )
+			.andWhere( 'log_action', 'revision' )
+			.andWhere( ( qb ) => {
+				let ref = qb;
+				for ( const revId of revisionIds ) {
+					ref = ref.orWhereRaw( `\`log_params\` LIKE "%i:${ revId };%"` );
+				}
+				return ref;
+			} )
+			.orderBy( 'log_timestamp', 'asc' )
+			.then( entries => entries.map( this.logDeserialize.bind( this, Title ) ) );
+
+		const entryIndex = {};
+		const entryFirstFew = {};
+		// Since the array iterates entries from oldest to newest, successive new matches
+		// will be overwritten.
+		for ( const entry of foundLogEntries ) {
+			for ( const id of entry.params.ids ) {
+				entryIndex[ id ] = entry;
+				entryFirstFew[ id ] = entry.params.ids.sort().slice( 0, 3 );
+			}
+		}
+
+		return revisions.map( r => Object.assign( r, {
+			texthidden: <const>true,
+			deleted: entryIndex[ r.revid ] ?? true,
+			islikelycause: entryIndex[ r.revid ] ?
+				entryFirstFew[ r.revid ].includes( r.revid ) : false
+		} ) );
+	}
+
+	/**
+	 * Deserializes a database log entry into a TextDeletedRevision.
+	 *
+	 * @param Title
+	 * @param logEntry
+	 * @return The log entry in API:Query form.
+	 * @see https://w.wiki/6QgW
+	 */
+	logDeserialize(
+		Title: MwnTitleStatic,
+		logEntry: Record<string, Buffer | number>
+	): DeletionInfo {
+		// Strip out the numeric internationalization keys from the param keys.
+		const deserializedParameters: any = logEntry.log_params ? Object.fromEntries(
+			Object.entries( phpUnserialize( dbString( logEntry.log_params as Buffer ) ) )
+				.map( ( [ k, v ] ) => [ k.replace( /^\d+::/, '' ), v ] )
+		) : null;
+
+		const bitmaskToDeletionFlags = ( bitmask: number ): DeletionFlags => ( {
+			bitmask: bitmask,
+			// eslint-disable-next-line no-bitwise
+			content: !!( bitmask & RevisionRecordDeletionConstants.DELETED_TEXT ),
+			// eslint-disable-next-line no-bitwise
+			comment: !!( bitmask & RevisionRecordDeletionConstants.DELETED_COMMENT ),
+			// eslint-disable-next-line no-bitwise
+			user: !!( bitmask & RevisionRecordDeletionConstants.DELETED_USER ),
+			// eslint-disable-next-line no-bitwise
+			restricted: !!( bitmask & RevisionRecordDeletionConstants.DELETED_RESTRICTED )
+		} );
+
+		const user = logEntry.actor_name ? new Title(
+			dbString( logEntry.actor_name as Buffer ), Title.nameIdMap.user
+		).getMainText() : null;
+		return {
+			logid: +logEntry.log_id,
+			params: logEntry.log_params ? {
+				type: deserializedParameters.type,
+				ids: deserializedParameters.ids,
+				old: bitmaskToDeletionFlags( deserializedParameters.ofield ),
+				new: bitmaskToDeletionFlags( deserializedParameters.nfield )
+			} : null,
+			user: user,
+			timestamp: logEntry.log_timestamp ?
+				dbTimestamp( logEntry.log_timestamp as Buffer ).toISOString() : null,
+			comment: dbString( logEntry.comment_text as Buffer ),
+			tags: dbString( logEntry.comment_text as Buffer ).split( ',' ),
+
+			// hidden flags
+			...( logEntry.actor_id == null ? { userhidden: true } : {} ),
+			...( logEntry.comment_id == null ? { commenthidden: true } : {} ),
+			...( logEntry.log_params == null ? { actionhidden: true } : {} )
+		};
+	}
 }
