@@ -2,7 +2,7 @@ import { isValidRevision, MissingRevision, Revision, RevisionData } from '../mod
 import { ApiResponse, mwn } from 'mwn';
 import fakePromise, { FakePromise } from '../util/func/fakePromise';
 import stagger from '../util/func/stagger';
-import Dispatch from '../Dispatch';
+import Log from '../util/Log';
 
 /**
  * @example https://w.wiki/6Dzt
@@ -72,7 +72,7 @@ export default class RevisionExpander {
 			const revPromise = fakePromise<Revision>();
 			this.revisionQueue[ rev ] = revPromise;
 			fakePromises[ rev ] = revPromise.promise;
-			Dispatch.i.log.trace( `Revision queued for query: ${rev}` );
+			Log.trace( `Revision queued for query: ${rev}` );
 		}
 		this.run();
 		return fakePromises;
@@ -85,7 +85,7 @@ export default class RevisionExpander {
 	 * @param revisions
 	 */
 	async request( revisions: number[] ): Promise<Record<number, Revision>> {
-		Dispatch.i.log.debug( `Expanding ${revisions.length} revisions...` );
+		Log.debug( `Expanding ${revisions.length} revisions...` );
 		const revisionBank: Record<number, Revision> = {};
 		const parentRevisionIds: number[] = [];
 		const parentRevisionSizes: Record<number, number> = {};
@@ -163,7 +163,7 @@ export default class RevisionExpander {
 		revisions: number[],
 		props: string[]
 	): Promise<ApiQueryRevisionResponse[]> {
-		Dispatch.i.log.trace( `Querying data for ${revisions.length} revisions (props=${
+		Log.trace( `Querying data for ${revisions.length} revisions (props=${
 			props.join( '|' )
 		})...` );
 		return await this.client.massQuery( {

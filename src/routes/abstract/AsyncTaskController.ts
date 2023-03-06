@@ -2,7 +2,7 @@ import { Controller } from 'tsoa';
 import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../models/ErrorResponse';
 import express from 'express';
 import crypto from 'crypto';
-import Dispatch from '../../Dispatch';
+import Log from '../../util/Log';
 
 /**
  * An asynchronous task that is currently running. It can be used to set
@@ -27,7 +27,7 @@ export class AsyncTask<R> {
 	 */
 	updateProgress( progress: number ) {
 		this.progress = Math.max( 0, Math.min( 1, progress ) );
-		Dispatch.i.log.trace( `${( this.progress * 100 ).toFixed( 2 )}% done.`, {
+		Log.trace( `${( this.progress * 100 ).toFixed( 2 )}% done.`, {
 			task: this.id
 		} );
 	}
@@ -41,7 +41,7 @@ export class AsyncTask<R> {
 		this.progress = 1;
 		this.result = result;
 		this.finished = true;
-		Dispatch.i.log.trace( 'Finished.', {
+		Log.trace( 'Finished.', {
 			task: this.id
 		} );
 	}

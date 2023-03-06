@@ -1,7 +1,7 @@
 import DatabaseConnection from './DatabaseConnection';
 import { Knex } from 'knex';
 import { SiteMatrixSite } from '../util/WikimediaSiteMatrix';
-import Dispatch from '../Dispatch';
+import { TOOLFORGE } from '../DispatchConstants';
 
 /**
  * Toolforge Replica database connection handler.
@@ -24,7 +24,7 @@ export default class ReplicaConnection extends DatabaseConnection {
 		let host: string;
 		let port: number;
 
-		if ( Dispatch.toolforge ) {
+		if ( TOOLFORGE ) {
 			host = `${site.dbname}.${type}.db.svc.wikimedia.cloud`;
 			port = 3306;
 		} else {
