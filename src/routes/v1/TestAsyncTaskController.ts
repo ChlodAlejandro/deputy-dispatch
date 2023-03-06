@@ -2,7 +2,7 @@ import { Get, Path, Post, Query, Request, Response, Route, SuccessResponse, Tags
 import AsyncTaskController, { AsyncTask, TaskInformation } from '../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../models/ErrorResponse';
 import express from 'express';
-import Dispatch from '../../Dispatch';
+import Log from '../../util/Log';
 
 interface Echo {
 	str: string;
@@ -32,7 +32,7 @@ export class TestAsyncTaskController extends AsyncTaskController<Echo, Echo> {
 		let x;
 		const runTask = () => {
 			task.updateProgress( task.progress + ( 1 / 60 ) );
-			Dispatch.i.log.trace( 'PROGRESS: ' + task.progress );
+			Log.trace( 'PROGRESS: ' + task.progress );
 
 			if ( task.progress >= 1 ) {
 				task.finish( options );

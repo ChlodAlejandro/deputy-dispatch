@@ -1,11 +1,12 @@
 import knex, { Knex } from 'knex';
 import path from 'path';
-import Dispatch from '../Dispatch';
 import os from 'os';
 import fs from 'fs/promises';
 import ini from 'ini';
 import attachRevisionQueryBuilderExtensions from './extensions/RevisionQueryBuilder';
 import attachLogQueryBuilderExtensions from './extensions/LoggingQueryBuilder';
+import Log from '../util/Log';
+import { ROOT_PATH, TOOLFORGE } from '../DispatchConstants';
 
 /**
  * Toolforge database connection handler.
@@ -37,22 +38,22 @@ export default class DatabaseConnection {
 			// Data incomplete, do file reads
 			await this.readMyCnf( [
 				path.resolve( os.homedir(), '.replica.my.cnf' ),
-				path.resolve( Dispatch.rootPath, 'replica.my.cnf' )
+				path.resolve( ROOT_PATH, 'replica.my.cnf' )
 			] );
 		}
 
 		if ( !DatabaseConnection.ENABLED ) {
-			Dispatch.i.log.error( 'No database credentials found. DB assertions will fail!' );
-			Dispatch.i.log.info( 'This includes many API endpoints that rely on the DB.' );
-			Dispatch.i.log.info( 'Provide an SQL user/password or a valid replica.my.cnf.' );
-			Dispatch.i.log.info( 'See the README for more information.' );
+			Log.error( 'No database credentials found. DB assertions will fail!' );
+			Log.info( 'This includes many API endpoints that rely on the DB.' );
+			Log.info( 'Provide an SQL user/password or a valid replica.my.cnf.' );
+			Log.info( 'See the README for more information.' );
 		}
 
 		try {
 			attachRevisionQueryBuilderExtensions();
 			attachLogQueryBuilderExtensions();
 		} catch ( e ) {
-			Dispatch.i.log.error(
+			Log.error(
 				'Failed to attach Knex QueryBuilder extensions. Queries will fail!'
 			);
 		}
@@ -73,7 +74,7 @@ export default class DatabaseConnection {
 				const confFile = await fs.readFile( confPath, 'utf8' );
 				const conf = ini.parse( confFile );
 
-				Dispatch.i.log.debug( `Found replica.my.cnf: ${ confPath }` );
+				Log.debug( `Found replica.my.cnf: ${ confPath }` );
 
 				if ( !DatabaseConnection.DB_USER ) {
 					DatabaseConnection.DB_USER = conf.client.user;
@@ -83,13 +84,13 @@ export default class DatabaseConnection {
 				}
 			} catch ( e ) {
 				if ( e.code !== 'ENOENT' ) {
-					Dispatch.i.log.debug( `Failed to read replica.my.cnf: ${e}` );
-					Dispatch.i.log.debug( 'Trying another path...' );
+					Log.debug( `Failed to read replica.my.cnf: ${e}` );
+					Log.debug( 'Trying another path...' );
 				}
 			}
 		}
 		if ( !DatabaseConnection.DB_USER || !DatabaseConnection.DB_PASS ) {
-			Dispatch.i.log.error( 'Failed to read any valid replica.my.cnf!' );
+			Log.error( 'Failed to read any valid replica.my.cnf!' );
 		}
 	}
 
@@ -108,7 +109,7 @@ export default class DatabaseConnection {
 	): Promise<Knex> {
 		// Under the super rare circumstance that someone finds an ACE exploit and
 		// attempts to steal the credentials by connecting to an outside database.
-		if ( Dispatch.toolforge && !host.endsWith( 'db.svc.wikimedia.cloud' ) ) {
+		if ( TOOLFORGE && !host.endsWith( 'db.svc.wikimedia.cloud' ) ) {
 			throw new Error( 'Attempted to connect to non-Wikimedia database.' );
 		}
 

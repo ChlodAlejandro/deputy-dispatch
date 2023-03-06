@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { SiteMatrixSite } from './WikimediaSiteMatrix';
-import { Namespace } from './Title';
+import type { Namespace } from './Title';
 
 interface TitleInfo {
 	legaltitlechars: string;

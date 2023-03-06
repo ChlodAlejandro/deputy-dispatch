@@ -1,9 +1,6 @@
 import path from 'path';
-import Logger from 'bunyan';
-import bunyanFormat from 'bunyan-format';
 import express from 'express';
 import http from 'http';
-import fs from 'fs';
 import packageInfo from '../package.json';
 import { WikimediaSiteMatrix } from './util/WikimediaSiteMatrix';
 import { ValidateError } from 'tsoa';
@@ -12,6 +9,8 @@ import { RegisterRoutes } from '../gen/routes';
 import swaggerUi from 'swagger-ui-express';
 import compression from 'compression';
 import DatabaseConnection from './database/DatabaseConnection';
+import Log from './util/Log';
+import { TOOLFORGE } from './DispatchConstants';
 
 /**
  * Main class for Dispatch.
@@ -23,26 +22,6 @@ export default class Dispatch {
 	 */
 	public static readonly i = new Dispatch();
 
-	/**
-	 * The path to the app root folder.
-	 */
-	static readonly rootPath = path.resolve( __dirname, '..' );
-
-	/**
-	 * The path to the log folder.
-	 */
-	static readonly logPath = path.resolve( Dispatch.rootPath, '.logs' );
-
-	/**
-	 * Whether we're running on Toolforge.
-	 */
-	static readonly toolforge = path.resolve( Dispatch.rootPath ) ===
-		'/data/project/deputy/www/js';
-
-	/**
-	 * The Zoomiebot log. Logs to the bot `.logs` folder and stdout.
-	 */
-	log: Logger;
 	app: express.Express;
 	server: http.Server;
 
@@ -54,43 +33,17 @@ export default class Dispatch {
 	}
 
 	/**
-	 * Set up the bunyan logger.
-	 */
-	setupLogger(): void {
-		if ( !fs.existsSync( Dispatch.logPath ) ) {
-			fs.mkdirSync( Dispatch.logPath );
-		}
-		const logFile = path.resolve( Dispatch.logPath, 'dispatch.log' );
-		const logFileStream = fs.createWriteStream(
-			logFile, { flags: 'a', encoding: 'utf8' }
-		);
-
-		this.log = Logger.createLogger( {
-			name: 'Dispatch',
-			level: process.env.NODE_ENV === 'development' ? 10 : 30,
-			stream: process.env.DISPATCH_RAWLOG ? process.stdout : bunyanFormat( {
-				outputMode: 'long',
-				levelInString: true
-			}, process.stdout )
-		} );
-		this.log.addStream( {
-			level: 'trace',
-			stream: logFileStream
-		} );
-	}
-
-	/**
 	 * Verifies the current execution environment before doing anything.
 	 */
 	verifyEnvironment() {
-		this.log.info( 'Performing environment checks...' );
+		Log.info( 'Performing environment checks...' );
 		if ( !process.env.DISPATCH_SELF_OAUTH_ACCESS_TOKEN ) {
-			this.log.fatal( 'Self OAuth 2 access token missing' );
+			Log.fatal( 'Self OAuth 2 access token missing' );
 			process.exit( 129 );
 		}
 		const PORT = process.env.DISPATCH_PORT || process.env.PORT;
 		if ( PORT && ( isNaN( +PORT ) || +PORT > 65535 || +PORT < 1 ) ) {
-			this.log.fatal( 'Bad port' );
+			Log.fatal( 'Bad port' );
 			process.exit( 128 );
 		}
 	}
@@ -99,19 +52,19 @@ export default class Dispatch {
 	 * Sets up the Express server.
 	 */
 	async setupExpress() {
-		this.log.info( 'Setting up Express server...' );
+		Log.info( 'Setting up Express server...' );
 		this.app = express();
 		this.app.disable( 'x-powered-by' );
 
 		// Use body parser to read sent json payloads
-		this.log.debug( 'Registering middleware (parsers)...' );
+		Log.debug( 'Registering middleware (parsers)...' );
 		this.app.use( compression() );
 		this.app.use( express.json() );
 		this.app.use( express.urlencoded( {
 			extended: true
 		} ) );
 
-		this.log.debug( 'Registering middleware (access control)...' );
+		Log.debug( 'Registering middleware (access control)...' );
 		this.app.use( async function ( req, res, next ) {
 			res.header( 'Server', `${ packageInfo.name }/${ packageInfo.version }` );
 
@@ -127,7 +80,7 @@ export default class Dispatch {
 				console.error( 'Failed to verify origin.', e );
 			}
 
-			Dispatch.i.log.trace( `${ req.method } ${ req.path } HTTP/${ req.httpVersion }`, {
+			Log.trace( `${ req.method } ${ req.path } HTTP/${ req.httpVersion }`, {
 				ip: req.ip,
 				ips: req.ips || undefined,
 				query: req.query || undefined
@@ -135,7 +88,7 @@ export default class Dispatch {
 
 			next();
 		} );
-		if ( !Dispatch.toolforge ) {
+		if ( !TOOLFORGE ) {
 			this.app.use( function ( req, res, next ) {
 				res.header( 'X-Clacks-Overhead', 'GNU Terry Pratchett' );
 				next();
@@ -143,7 +96,7 @@ export default class Dispatch {
 		}
 
 		// Documentation endpoints
-		this.log.debug( 'Registering middleware (docs)...' );
+		Log.debug( 'Registering middleware (docs)...' );
 		const swaggerSchema: any = Object.assign(
 			{},
 			...( await Promise.all( [
@@ -162,14 +115,14 @@ export default class Dispatch {
 		) );
 
 		// Register actual endpoint routes
-		this.log.debug( 'Registering middleware (routes)...' );
+		Log.debug( 'Registering middleware (routes)...' );
 		RegisterRoutes( this.app );
 
 		// Static files handler
 		this.app.use( '/', express.static( path.join( __dirname, 'public' ) ) );
 
 		// Register handler for missing parameters, etc.
-		this.log.debug( 'Registering middleware (errors)...' );
+		Log.debug( 'Registering middleware (errors)...' );
 		this.app.use( function errorHandler(
 			err: unknown,
 			req: express.Request,
@@ -213,9 +166,8 @@ export default class Dispatch {
 	 * Start the bot.
 	 */
 	async start() {
-		this.setupLogger();
-		this.log.info( `Deputy Dispatch v${ packageInfo.version } is starting...` );
-		this.log.info( `Toolforge mode: ${Dispatch.toolforge ? 'ON' : 'OFF'}` );
+		Log.info( `Deputy Dispatch v${ packageInfo.version } is starting...` );
+		Log.info( `Toolforge mode: ${TOOLFORGE ? 'ON' : 'OFF'}` );
 
 		this.verifyEnvironment();
 		await DatabaseConnection.verifyEnvironment();
@@ -223,7 +175,7 @@ export default class Dispatch {
 
 		const port = +( process.env.DISPATCH_PORT || process.env.PORT || 8080 );
 		this.server = this.app.listen( port, () => {
-			this.log.info( `Server started on port ${ port }` );
+			Log.info( `Server started on port ${ port }` );
 		} );
 	}
 
@@ -244,14 +196,14 @@ export function start() {
 
 	process.on( 'uncaughtException', ( err ) => {
 		try {
-			Dispatch.i.log.error( 'Uncaught exception: ' + err.message, err );
+			Log.error( 'Uncaught exception: ' + err.message, err );
 		} catch ( e ) {
 			console.error( err );
 		}
 	} );
 	process.on( 'unhandledRejection', ( err ) => {
 		try {
-			Dispatch.i.log.error( 'Unhandled rejection.', err );
+			Log.error( 'Unhandled rejection.', err );
 		} catch ( e ) {
 			console.error( err );
 		}

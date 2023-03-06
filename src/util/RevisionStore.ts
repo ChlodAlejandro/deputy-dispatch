@@ -1,7 +1,7 @@
 import WikimediaStream, { EventSourceState, WikimediaEventStream } from 'wikimedia-streams';
 import { isValidRevision, Revision } from '../models/Revision';
-import Dispatch from '../Dispatch';
 import toolUserAgent from './func/toolUserAgent';
+import Log from './Log';
 
 /**
  * Like a map but for revisions. Once initialized, this will hook onto a Wikimedia
@@ -39,7 +39,7 @@ export default class RevisionStore extends Map<number, Revision> {
 	 */
 	set( key: number, value: Revision ): this {
 		if ( !this.stream || this.stream.status !== EventSourceState.Open ) {
-			Dispatch.i.log.warn( `Cannot set revision ${key} while stream is closed.` );
+			Log.warn( `Cannot set revision ${key} while stream is closed.` );
 		} else {
 			super.set( key, value );
 		}
@@ -60,17 +60,17 @@ export default class RevisionStore extends Map<number, Revision> {
 				}
 			} );
 			this.stream.on( 'open', () => {
-				Dispatch.i.log.info( 'Wikimedia stream opened.', {
+				Log.info( 'Wikimedia stream opened.', {
 					stream: this.storeId
 				} );
 			} );
 			this.stream.on( 'close', () => {
-				Dispatch.i.log.info( 'Wikimedia stream closed.', {
+				Log.info( 'Wikimedia stream closed.', {
 					stream: this.storeId
 				} );
 			} );
 			this.stream.on( 'error', ( error ) => {
-				Dispatch.i.log.info( 'Encountered error on Wikimedia stream', {
+				Log.info( 'Encountered error on Wikimedia stream', {
 					error,
 					stream: this.storeId
 				} );

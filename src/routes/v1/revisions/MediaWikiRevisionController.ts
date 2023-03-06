@@ -1,13 +1,15 @@
 import {
+	BodyProp,
+	Controller,
 	Get,
 	Path,
+	Post,
 	Query,
-	Route,
-	Response,
-	Controller,
-	SuccessResponse,
 	Request,
-	Post, BodyProp, Tags
+	Response,
+	Route,
+	SuccessResponse,
+	Tags
 } from 'tsoa';
 import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../../models/ErrorResponse';
 import { Revision } from '../../../models/Revision';
@@ -16,7 +18,7 @@ import express from 'express';
 import RevisionStore from '../../../util/RevisionStore';
 import RevisionExpander from '../../../processors/RevisionExpander';
 import WikimediaSessionManager from '../../../processors/WikimediaSessionManager';
-import Dispatch from '../../../Dispatch';
+import Log from '../../../util/Log';
 
 /**
  *
@@ -183,11 +185,11 @@ export class MediaWikiRevisionController extends Controller {
 			// TODO: User authentication. In such case, use WikimediaSessionManager to create a
 			// client object from scratch. Whether this object should be persisted... /shrug
 			const client = await WikimediaSessionManager.getClient( site );
-			Dispatch.i.log.debug( 'mwn for default client ready' );
+			Log.debug( 'mwn for default client ready' );
 			const expander = new RevisionExpander( client );
 			const processingRevisions = expander.queue( forProcessing );
 			await Promise.all( Object.values( processingRevisions ) );
-			Dispatch.i.log.debug( `Revisions processed... ${
+			Log.debug( `Revisions processed... ${
 				Object.keys( processingRevisions ).length
 			} total.` );
 			for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
