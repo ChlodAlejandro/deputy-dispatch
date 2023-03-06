@@ -138,7 +138,9 @@ export default class Dispatch {
 		this.app.use( '/docs', swaggerUi.serve, swaggerUi.setup(
 			swaggerSchema,
 			{
-				customCss: 'img[alt="Swagger UI"] { content: url("/favicon.ico") }'
+				customCss: 'img[alt="Swagger UI"] { content: url("/favicon.ico") }',
+				customSiteTitle: 'Deputy Dispatch API',
+				customfavIcon: '/favicon.ico'
 			}
 		) );
 
