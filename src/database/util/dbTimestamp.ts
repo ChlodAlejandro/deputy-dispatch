@@ -5,7 +5,9 @@
  * @return A Date object
  */
 export default function dbTimestamp( ts: string | Buffer ): Date {
-	if ( ts instanceof Buffer ) {
+	if ( ts == null ) {
+		return null;
+	} else if ( ts instanceof Buffer ) {
 		ts = ts.toString( 'utf8' );
 	}
 	return new Date(

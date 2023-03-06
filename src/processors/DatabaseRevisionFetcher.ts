@@ -1,6 +1,12 @@
 import { SiteMatrixSite } from '../util/WikimediaSiteMatrix';
 import ReplicaConnection from '../database/ReplicaConnection';
 import { Knex } from 'knex';
+import { PossibleDeletedRevision } from '../models/DeletedRevision';
+import dbTimestamp from '../database/util/dbTimestamp';
+import dbString from '../database/util/dbString';
+import TitleFactory from '../util/Title';
+import { MwnTitleStatic } from 'mwn/build/title';
+import { ExpandedRevision } from '../models/Revision';
 
 /**
  * Fetches revisions from the Replica database.
@@ -34,14 +40,16 @@ export default class DatabaseRevisionFetcher {
 	 * `parent` is the parent revision (the previous revision). Not doing so will
 	 * result in ambiguous column names.
 	 *
+	 * @param conn
+	 * @param Title
 	 * @param processor Query builder and connection extender
 	 */
-	async fetch(
+	static async fetch(
+		conn: Knex,
+		Title: MwnTitleStatic,
 		processor: ( qb: Knex.QueryBuilder, conn: Knex ) => Knex.QueryBuilder
 		= ( qb ) => qb
-	) {
-		const conn = await ReplicaConnection.connect( this.site, this.type );
-
+	): Promise<Omit<ExpandedRevision, 'parsedcomment'>[]> {
 		return processor(
 			conn( { main: 'revision_userindex' } )
 				.select(
@@ -49,7 +57,9 @@ export default class DatabaseRevisionFetcher {
 					'main.rev_parent_id',
 					'main.rev_minor_edit',
 					'main.rev_timestamp',
-					'main.rev_len'
+					'main.rev_len',
+					'main.rev_comment_id',
+					'main.rev_actor'
 				)
 				.withRevisionParents( [ 'rev_len' ], 'main', 'parent' )
 				.withRevisionActor( [ 'actor_name' ], 'main' )
@@ -57,7 +67,43 @@ export default class DatabaseRevisionFetcher {
 				.withRevisionPage( [ 'page_id', 'page_title', 'page_namespace' ], 'main' ),
 			conn
 		)
-			.orderBy( 'main.rev_timestamp', 'desc' );
+			.orderBy( 'main.rev_timestamp', 'desc' )
+			.then( d => d.map( v => ( <PossibleDeletedRevision>{
+				revid: +v.rev_id,
+				parentid: +v.rev_parent_id,
+				minor: !!v.rev_minor_edit,
+				user: v.actor_name ?
+					new Title( dbString( v.actor_name ), Title.nameIdMap.user ).getMainText() :
+					null,
+				timestamp: v.rev_timestamp ? dbTimestamp( v.rev_timestamp ).toISOString() : null,
+				size: v.rev_len,
+				comment: v.comment_text ? dbString( v.comment_text ) : null,
+				tags: dbString( v.ts_tags ).split( ',' ),
+				page: {
+					pageid: +v.page_id,
+					title: new Title(
+						dbString( v.page_title ), +v.page_namespace
+					).getPrefixedText(),
+					ns: +v.page_namespace
+				},
+				diffsize: v.rev_len - v.parent_rev_len,
+
+				...( v.rev_comment_id ? { commenthidden: true } : {} ),
+				...( v.rev_actor ? { userhidden: true } : {} )
+			} ) ) );
+	}
+
+	/**
+	 * @param processor Query builder and connection extender
+	 * @see DatabaseRevisionFetcher.fetch
+	 */
+	async fetch(
+		processor: ( qb: Knex.QueryBuilder, conn: Knex ) => Knex.QueryBuilder
+		= ( qb ) => qb
+	): Promise<Omit<ExpandedRevision, 'parsedcomment'>[]> {
+		const conn = await ReplicaConnection.connect( this.site, this.type );
+		const Title = await TitleFactory.get( this.site );
+		return DatabaseRevisionFetcher.fetch( conn, Title, processor );
 	}
 
 }

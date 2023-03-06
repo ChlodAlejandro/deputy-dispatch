@@ -5,6 +5,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import ini from 'ini';
 import attachRevisionQueryBuilderExtensions from './extensions/RevisionQueryBuilder';
+import attachLogQueryBuilderExtensions from './extensions/LoggingQueryBuilder';
 
 /**
  * Toolforge database connection handler.
@@ -49,6 +50,7 @@ export default class DatabaseConnection {
 
 		try {
 			attachRevisionQueryBuilderExtensions();
+			attachLogQueryBuilderExtensions();
 		} catch ( e ) {
 			Dispatch.i.log.error(
 				'Failed to attach Knex QueryBuilder extensions. Queries will fail!'
