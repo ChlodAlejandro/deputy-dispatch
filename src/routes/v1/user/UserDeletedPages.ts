@@ -16,25 +16,22 @@ import AsyncTaskController, {
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
-import { DeletedRevision, TextDeletedRevision } from '../../../models/DeletedRevision';
-import UserDeletedRevisionFetcher from '../../../processors/UserDeletedRevisionFetcher';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
-import ReplicaConnection from '../../../database/ReplicaConnection';
-import TitleFactory from '../../../util/Title';
 import Cache from 'stale-lru-cache';
+import UserDeletedPageFetcher, { DeletedPage } from '../../../processors/UserDeletedPageFetcher';
 
-interface UserDeletedRevisionsResponse {
-	revisions: Record<number, DeletedRevision>;
+interface UserDeletedPagesResponse {
+	pages: Record<number, DeletedPage>;
 }
 
 /**
  *
  */
 @Tags( 'User' )
-@Route( 'v1/user/deleted-revisions' )
-export class UserDeletedRevisions
+@Route( 'v1/user/deleted-pages' )
+export class UserDeletedPages
 	extends AsyncTaskController<{ site: SiteMatrixSite, user: string },
-		UserDeletedRevisionsResponse> {
+		UserDeletedPagesResponse> {
 
 	static readonly errorUnsupportedWiki = new ErrorResponseBuilder()
 		.add( 'unsupportedwiki', {
@@ -51,7 +48,7 @@ export class UserDeletedRevisions
 	 * @inheritDoc
 	 */
 	protected getTaskListId(): string {
-		return 'user-deleted-revisions';
+		return 'user-deleted-pages';
 	}
 
 	/**
@@ -63,48 +60,14 @@ export class UserDeletedRevisions
 	 */
 	async process(
 		options: { site: SiteMatrixSite, user: string },
-		task: AsyncTask<UserDeletedRevisionsResponse>
+		task: AsyncTask<UserDeletedPagesResponse>
 	): Promise<void> {
-		const udrf = new UserDeletedRevisionFetcher( options.site, 'web' );
-		const conn = await ReplicaConnection.connect( options.site, 'web' );
-		const Title = await TitleFactory.get( options.site );
-		const usernameTitle =
-			new Title( options.user, Title.nameIdMap.user );
-
-		task.updateProgress( 0 );
-		const deletedRevsQueryStart = Date.now();
-		const deletedRevs = await udrf.getUserDeletedRevisions( conn, Title, usernameTitle );
-		const deletedRevsQueryDuration = Date.now() - deletedRevsQueryStart;
-
-		// Mark as 1/5 done.
-		task.updateProgress( 0.20 );
-
-		const upgradeBatchSize = 25;
-		const upgradeBatchCount = deletedRevs.length / upgradeBatchSize;
-		const upgradeStart = Date.now();
-		let upgradeDuration = null;
-		for ( let i = 0; i < Math.ceil( upgradeBatchCount ); i++ ) {
-			const batch = deletedRevs.slice( i * upgradeBatchSize, ( i + 1 ) * upgradeBatchSize );
-			await udrf.upgradeDeletedRevisions( conn, Title, batch );
-			if ( upgradeDuration == null ) {
-				upgradeDuration = Date.now() - upgradeStart;
-			}
-			// Set a minimum of 20% to avoid back-tracking the progress bar.
-			task.updateProgress( Math.max(
-				( deletedRevsQueryDuration + ( upgradeDuration * ( i + 1 ) ) ) /
-				( deletedRevsQueryDuration + ( upgradeBatchCount * upgradeDuration ) ),
-				0.20
-			) );
-		}
-
-		// All batches done!
-		task.finish( {
-			revisions: deletedRevs as TextDeletedRevision[]
-		} );
+		const udrf = new UserDeletedPageFetcher( options.site, 'web' );
+		task.finish( { pages: await udrf.fetch( options.user ) } );
 	}
 
 	/**
-	 * Search for all deleted edits by a user and determine their reasons.
+	 * Search for all deleted pages by a user and determine their reasons.
 	 *
 	 * This will return an ID, which you are supposed to poll with
 	 * `:id/progress` until the task is finished (in which case,
@@ -127,22 +90,22 @@ export class UserDeletedRevisions
 		const site = await WikimediaSiteMatrix.i.getDbName( wiki );
 		if ( !site ) {
 			this.setStatus( 400 );
-			return UserDeletedRevisions.errorUnsupportedWiki.build();
+			return UserDeletedPages.errorUnsupportedWiki.build();
 		}
 
 		const cacheKey = JSON.stringify( { user, wiki } );
 		if (
-			UserDeletedRevisions.requestCache.has( cacheKey ) &&
-			!UserDeletedRevisions.requestCache.isStale( cacheKey ) &&
+			UserDeletedPages.requestCache.has( cacheKey ) &&
+			!UserDeletedPages.requestCache.isStale( cacheKey ) &&
 			!bypassCache
 		) {
 			return this.handleProgressRequest(
-				req, UserDeletedRevisions.requestCache.get( cacheKey ).id
+				req, UserDeletedPages.requestCache.get( cacheKey ).id
 			);
 		}
 
 		const task = this.runTask( { site, user } );
-		UserDeletedRevisions.requestCache.set( cacheKey, task );
+		UserDeletedPages.requestCache.set( cacheKey, task );
 		this.setStatus( 202 );
 		this.setHeader( 'Location', `${ task.id }/progress` );
 		return this.handleProgressRequest( req, task.id ) as TaskInformation;
@@ -170,7 +133,7 @@ export class UserDeletedRevisions
 	public async result(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserDeletedRevisionsResponse> {
+	): Promise<ErrorResponse | UserDeletedPagesResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**

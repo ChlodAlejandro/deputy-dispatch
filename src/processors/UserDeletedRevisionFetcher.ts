@@ -3,10 +3,10 @@ import TitleFactory from '../util/Title';
 import dbTimestamp from '../database/util/dbTimestamp';
 import ReplicaConnection from '../database/ReplicaConnection';
 import {
-	DeletionFlags,
-	DeletionInfo,
+	ChangeDeletionFlags,
+	RevisionDeletionInfo,
 	PossibleDeletedRevision,
-	RevisionRecordDeletionConstants,
+	ChangeDeletionBitmaskConstants,
 	TextDeletedRevision
 } from '../models/DeletedRevision';
 import { MwnTitle } from 'mwn';
@@ -42,8 +42,11 @@ export default class UserDeletedRevisionFetcher {
 	 * Fetches deleted revisions by a user.
 	 *
 	 * We can assume in this case that the user is never `null` (i.e. the user
-	 * is not wiped from the replica revision table) because the revision must
+	 * is not wiped from the revision_userindex table) because the revision must
 	 * have a valid actor (which, in this case, is always true).
+	 *
+	 * THIS QUERY TAKES AROUND A MINUTE! When possible, break this into multiple
+	 * queries and provide progress indicators.
 	 *
 	 * @param user
 	 */
@@ -106,7 +109,7 @@ export default class UserDeletedRevisionFetcher {
 	): Promise<TextDeletedRevision[]> {
 		const revisionIds = revisions.map( r => r.revid );
 
-		const foundLogEntries: DeletionInfo[] = await conn( 'logging_userindex' )
+		const foundLogEntries: RevisionDeletionInfo[] = await conn( 'logging_userindex' )
 			.select( [
 				'log_id',
 				'log_timestamp',
@@ -164,23 +167,23 @@ export default class UserDeletedRevisionFetcher {
 	logDeserialize(
 		Title: MwnTitleStatic,
 		logEntry: Record<string, Buffer | number>
-	): DeletionInfo {
+	): RevisionDeletionInfo {
 		// Strip out the numeric internationalization keys from the param keys.
 		const deserializedParameters: any = logEntry.log_params ? Object.fromEntries(
 			Object.entries( phpUnserialize( dbString( logEntry.log_params as Buffer ) ) )
 				.map( ( [ k, v ] ) => [ k.replace( /^\d+::/, '' ), v ] )
 		) : null;
 
-		const bitmaskToDeletionFlags = ( bitmask: number ): DeletionFlags => ( {
+		const bitmaskToDeletionFlags = ( bitmask: number ): ChangeDeletionFlags => ( {
 			bitmask: bitmask,
 			// eslint-disable-next-line no-bitwise
-			content: !!( bitmask & RevisionRecordDeletionConstants.DELETED_TEXT ),
+			content: !!( bitmask & ChangeDeletionBitmaskConstants.DELETED_TEXT ),
 			// eslint-disable-next-line no-bitwise
-			comment: !!( bitmask & RevisionRecordDeletionConstants.DELETED_COMMENT ),
+			comment: !!( bitmask & ChangeDeletionBitmaskConstants.DELETED_COMMENT ),
 			// eslint-disable-next-line no-bitwise
-			user: !!( bitmask & RevisionRecordDeletionConstants.DELETED_USER ),
+			user: !!( bitmask & ChangeDeletionBitmaskConstants.DELETED_USER ),
 			// eslint-disable-next-line no-bitwise
-			restricted: !!( bitmask & RevisionRecordDeletionConstants.DELETED_RESTRICTED )
+			restricted: !!( bitmask & ChangeDeletionBitmaskConstants.DELETED_RESTRICTED )
 		} );
 
 		const user = logEntry.actor_name ? new Title(

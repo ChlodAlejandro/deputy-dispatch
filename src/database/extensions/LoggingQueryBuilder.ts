@@ -3,10 +3,13 @@ import {
 	actorColumns,
 	ActorColumns,
 	commentColumns,
-	CommentColumns, pageColumns, PageColumns,
+	CommentColumns,
+	pageColumns,
+	PageColumns,
 	tableJoiner,
 	Writable
 } from './DatabaseSchema';
+import { ArrayOrNot } from '../../util/types/ArrayOrNot';
 
 declare module 'knex' {
 	// eslint-disable-next-line @typescript-eslint/no-namespace
@@ -14,9 +17,28 @@ declare module 'knex' {
 		interface QueryBuilder {
 
 			/**
-			 * tableJoiner the actors of a query which has a logging table.
+			 * Join the log entries of another table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
+			 * @param joinSource The column to join on (on the source table).
+			 * @param joinTarget The column to join using (on the target table).
+			 * @param joinSourceAlias The alias of the table to join from
+			 *   (if columns are ambiguous).
+			 * @param joinTableAlias The alias of the table to join.
+			 *   Use this if there are more than two logging tables in the query.
+			 */
+			withLogs: <TRecord, TResult>(
+				joinSource: string,
+				joinTarget: string,
+				selectColumns?: ActorColumns,
+				joinSourceAlias?: string,
+				joinTableAlias?: string
+			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
+
+			/**
+			 * Join the actors of a query which has a logging table.
+			 *
+			 * @param columns The columns to join
 			 * @param loggingTableAlias The alias of the logging table.
 			 *   Use this if there are more than two logging tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -29,9 +51,9 @@ declare module 'knex' {
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 
 			/**
-			 * tableJoiner the comments of a query which has a logging table.
+			 * Join the comments of a query which has a logging table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param loggingTableAlias The alias of the logging table.
 			 *   Use this if there are more than two logging tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -44,9 +66,9 @@ declare module 'knex' {
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 
 			/**
-			 * tableJoiner the pages of a query which has a logging table.
+			 * Join the pages of a query which has a logging table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param loggingTableAlias The alias of the logging table.
 			 *   Use this if there are more than two logging tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -66,6 +88,19 @@ declare module 'knex' {
  * log data, such as performing joins with user name, edit summary, etc.
  */
 export default function attachLogQueryBuilderExtensions() {
+
+	knex.QueryBuilder.extend( 'withLog', function (
+		joinSource: ArrayOrNot<string>,
+		joinTarget: ArrayOrNot<string>,
+		selectColumns?: ActorColumns,
+		joinSourceAlias?: string,
+		joinTableAlias?: string
+	) {
+		return tableJoiner(
+			this, 'logging_logindex', joinSource, joinTarget,
+			selectColumns, joinSourceAlias, joinTableAlias
+		);
+	} );
 
 	knex.QueryBuilder.extend( 'withLogActor', function (
 		columns: ActorColumns = actorColumns as Writable<typeof actorColumns>,
@@ -90,6 +125,17 @@ export default function attachLogQueryBuilderExtensions() {
 	} );
 
 	knex.QueryBuilder.extend( 'withLogPage', function (
+		columns: PageColumns = pageColumns as Writable<typeof pageColumns>,
+		loggingTableAlias?: string,
+		joinTableAlias?: string
+	) {
+		return tableJoiner(
+			this, 'page', 'log_page', 'page_id',
+			columns, loggingTableAlias, joinTableAlias
+		);
+	} );
+
+	knex.QueryBuilder.extend( 'withLogTags', function (
 		columns: PageColumns = pageColumns as Writable<typeof pageColumns>,
 		loggingTableAlias?: string,
 		joinTableAlias?: string

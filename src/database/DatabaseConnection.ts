@@ -7,6 +7,7 @@ import attachRevisionQueryBuilderExtensions from './extensions/RevisionQueryBuil
 import attachLogQueryBuilderExtensions from './extensions/LoggingQueryBuilder';
 import Log from '../util/Log';
 import { ROOT_PATH, TOOLFORGE } from '../DispatchConstants';
+import attachArchiveQueryBuilderExtensions from './extensions/ArchiveQueryBuilder';
 
 /**
  * Toolforge database connection handler.
@@ -51,6 +52,7 @@ export default class DatabaseConnection {
 
 		try {
 			attachRevisionQueryBuilderExtensions();
+			attachArchiveQueryBuilderExtensions();
 			attachLogQueryBuilderExtensions();
 		} catch ( e ) {
 			Log.error(
