@@ -13,9 +13,9 @@ declare module 'knex' {
 	namespace Knex {
 		interface QueryBuilder {
 			/**
-			 * tableJoiner extra revisions from a query which has a revision table.
+			 * Join extra revisions from a query which has a revision table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param revisionTableAlias The alias of the revision table.
 			 *   Use this if there are more than two revision tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -28,9 +28,9 @@ declare module 'knex' {
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 
 			/**
-			 * tableJoiner the actors of a query which has a revision table.
+			 * Join the actors of a query which has a revision table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param revisionTableAlias The alias of the revision table.
 			 *   Use this if there are more than two revision tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -43,9 +43,9 @@ declare module 'knex' {
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 
 			/**
-			 * tableJoiner the comments of a query which has a revision table.
+			 * Join the comments of a query which has a revision table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param revisionTableAlias The alias of the revision table.
 			 *   Use this if there are more than two revision tables in the query.
 			 * @param joinTableAlias The alias of the table to join.
@@ -58,9 +58,9 @@ declare module 'knex' {
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 
 			/**
-			 * tableJoiner the pages of a query which has a revision table.
+			 * Join the pages of a query which has a revision table.
 			 *
-			 * @param columns The columns to tableJoiner
+			 * @param columns The columns to join
 			 * @param revisionTableAlias The alias of the revision table.
 			 *   Use this if there are more than two revision tables in the query.
 			 * @param joinTableAlias The alias of the table to join.

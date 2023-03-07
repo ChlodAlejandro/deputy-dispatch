@@ -1,10 +1,11 @@
 import { PartialPartial } from '../util/PartialPartial';
 import { ExpandedRevision } from './Revision';
+import { LogEntry } from './Log';
 
 /**
  * @see https://w.wiki/6PeZ RevisionRecord#DELETED_TEXT, related
  */
-export enum RevisionRecordDeletionConstants {
+export enum ChangeDeletionBitmaskConstants {
 	// Content hidden (most common case for copyright violations)
 	DELETED_TEXT = 1,
 	// Edit summary hidden
@@ -16,7 +17,7 @@ export enum RevisionRecordDeletionConstants {
 	DELETED_RESTRICTED = 8,
 }
 
-export interface DeletionFlags {
+export interface ChangeDeletionFlags {
 	/**
 	 * Bitmask for the deletion flags.
 	 */
@@ -42,7 +43,7 @@ export interface DeletionFlags {
 /**
  * Deletion log entry parameters
  */
-export interface DeletionParams {
+export interface RevisionDeletionParams {
 	/**
 	 * The type of deletion in the log. In this case, it's always "revision".
 	 */
@@ -54,29 +55,22 @@ export interface DeletionParams {
 	/**
 	 * The old deletion bitmask and flags
 	 */
-	old: DeletionFlags;
+	old: ChangeDeletionFlags;
 	/**
 	 * The new deletion bitmask and flags
 	 */
-	new: DeletionFlags;
+	new: ChangeDeletionFlags;
 }
 
-export interface DeletionInfo {
-	logid: number,
-	params: DeletionParams,
-	comment: string,
-	user: string,
-	timestamp: string,
-	tags: string[],
-
-	commenthidden?: boolean;
-	actionhidden?: boolean;
-	userhidden?: boolean;
+export interface RevisionDeletionInfo extends LogEntry {
+	params: RevisionDeletionParams;
 }
 
-type DeletionInfoFlagged<T extends keyof DeletionFlags> = ( Omit<DeletionInfo, 'flags'> & {
-	flags: DeletionFlags & Record<T, true>
-} )
+type DeletionInfoFlagged<T extends keyof ChangeDeletionFlags> = (
+	Omit<RevisionDeletionInfo, 'flags'> & {
+		flags: ChangeDeletionFlags & Record<T, true>
+	}
+)
 export type PossibleDeletedRevision =
 	Omit<PartialPartial<ExpandedRevision, 'user' | 'comment'>, 'parsedcomment'>;
 export type UserDeletedRevision = PossibleDeletedRevision & {
