@@ -67,7 +67,6 @@ export default class DatabaseRevisionFetcher {
 				.withRevisionPage( [ 'page_id', 'page_title', 'page_namespace' ], 'main' ),
 			conn
 		)
-			.orderBy( 'main.rev_timestamp', 'desc' )
 			.then( d => d.map( v => ( <PossibleDeletedRevision>{
 				revid: +v.rev_id,
 				parentid: +v.rev_parent_id,

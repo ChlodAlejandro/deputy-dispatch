@@ -89,6 +89,7 @@ export default class UserDeletedRevisionFetcher {
 					.where( 'actor_name', user.getMain() )
 				)
 				.andWhere( 'main.rev_deleted', '>', 0 )
+				.orderBy( 'main.rev_timestamp', 'desc' )
 		);
 	}
 
