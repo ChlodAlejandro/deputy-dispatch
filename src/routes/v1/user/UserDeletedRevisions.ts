@@ -118,7 +118,7 @@ export class UserDeletedRevisions
 	 */
 	@Post()
 	@SuccessResponse( 202, 'Accepted' )
-	public async run(
+	public async getUserDeletedRevisions(
 		@Request() req: express.Request,
 		@Query() bypassCache: boolean = false,
 		@BodyProp() user: string,
@@ -167,7 +167,7 @@ export class UserDeletedRevisions
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public async result(
+	public async getUserDeletedRevisionsResult(
 		@Request() req: express.Request,
 		@Path() id: string
 	): Promise<ErrorResponse | UserDeletedRevisionsResponse> {
@@ -188,7 +188,7 @@ export class UserDeletedRevisions
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public progress(
+	public getUserDeletedRevisionsProgress(
 		@Request() req: express.Request,
 		@Path() id: string
 	): ErrorResponse | TaskInformation {

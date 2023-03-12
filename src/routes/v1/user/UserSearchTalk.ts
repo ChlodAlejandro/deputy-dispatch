@@ -18,25 +18,29 @@ import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorRespon
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
-import UserDeletedPageFetcher, { DeletedPage } from '../../../processors/UserDeletedPageFetcher';
+import UserTalkPageFetcher, { PageRevisions } from '../../../processors/UserTalkPageFetcher';
 
-interface UserDeletedPagesResponse {
-	pages: Record<number, DeletedPage>;
-}
+type FilterType = string | string[] | { source: string, flags: string };
 
 /**
  *
  */
 @Tags( 'User' )
-@Route( 'v1/user/deleted-pages' )
-export class UserDeletedPages
-	extends AsyncTaskController<{ site: SiteMatrixSite, user: string },
-		UserDeletedPagesResponse> {
+@Route( 'v1/user/search-talk' )
+export class UserSearchTalk extends AsyncTaskController<
+	{ site: SiteMatrixSite, user: string, filter: FilterType },
+	PageRevisions
+> {
 
 	static readonly errorUnsupportedWiki = new ErrorResponseBuilder()
 		.add( 'unsupportedwiki', {
 			text: 'This wiki is not a supported Wikimedia wiki',
 			key: 'apierror-unsupportedwiki'
+		} );
+	static readonly errorInvalidFilter = new ErrorResponseBuilder()
+		.add( 'invalidfilter', {
+			text: 'A filter provided in the request is invalid',
+			key: 'apierror-invalidfilter'
 		} );
 
 	static readonly requestCache = new Cache<string, TaskInformation>( {
@@ -48,7 +52,7 @@ export class UserDeletedPages
 	 * @inheritDoc
 	 */
 	protected getTaskListId(): string {
-		return 'user-deleted-pages';
+		return 'user-warnings';
 	}
 
 	/**
@@ -56,18 +60,23 @@ export class UserDeletedPages
 	 * @param options
 	 * @param options.user
 	 * @param options.site
+	 * @param options.filter
 	 * @param task
 	 */
 	async process(
-		options: { site: SiteMatrixSite, user: string },
-		task: AsyncTask<UserDeletedPagesResponse>
+		options: { site: SiteMatrixSite, user: string, filter: FilterType },
+		task: AsyncTask<PageRevisions>
 	): Promise<void> {
-		const udrf = new UserDeletedPageFetcher( options.site, 'web' );
-		task.finish( { pages: await udrf.fetch( options.user ) } );
+		await UserTalkPageFetcher.fetch(
+			options.user,
+			options.site,
+			options.filter,
+			task
+		);
 	}
 
 	/**
-	 * Search for all deleted pages by a user and determine their reasons.
+	 * Search the talk page of a user for a given string.
 	 *
 	 * This will return an ID, which you are supposed to poll with
 	 * `:id/progress` until the task is finished (in which case,
@@ -77,35 +86,51 @@ export class UserDeletedPages
 	 * @param bypassCache Whether to skip the cache or not
 	 * @param user The username of the user
 	 * @param wiki The wiki to query for
+	 * @param filter
 	 * @return Relevant task information
 	 */
 	@Post()
 	@SuccessResponse( 202, 'Accepted' )
-	public async getUserDeletedPages(
+	public async searchUserTalkPage(
 		@Request() req: express.Request,
 		@Query() bypassCache: boolean = false,
 		@BodyProp() user: string,
-		@BodyProp() wiki: string
+		@BodyProp() wiki: string,
+		@BodyProp() filter: FilterType
 	): Promise<TaskInformation | ErrorResponse> {
 		const site = await WikimediaSiteMatrix.i.getDbName( wiki );
 		if ( !site ) {
 			this.setStatus( 400 );
-			return UserDeletedPages.errorUnsupportedWiki.build();
+			return UserSearchTalk.errorUnsupportedWiki.build();
+		}
+		if ( Array.isArray( filter ) ) {
+			if ( filter.length > 0 ) {
+				this.setStatus( 400 );
+				return UserSearchTalk.errorInvalidFilter.build();
+			}
+		} else if ( typeof filter === 'object' ) {
+			try {
+				// eslint-disable-next-line no-new
+				new RegExp( filter.source, filter.flags );
+			} catch ( e ) {
+				this.setStatus( 400 );
+				return UserSearchTalk.errorInvalidFilter.build();
+			}
 		}
 
 		const cacheKey = JSON.stringify( { user, wiki } );
 		if (
-			UserDeletedPages.requestCache.has( cacheKey ) &&
-			!UserDeletedPages.requestCache.isStale( cacheKey ) &&
+			UserSearchTalk.requestCache.has( cacheKey ) &&
+			!UserSearchTalk.requestCache.isStale( cacheKey ) &&
 			!bypassCache
 		) {
 			return this.handleProgressRequest(
-				req, UserDeletedPages.requestCache.get( cacheKey ).id
+				req, UserSearchTalk.requestCache.get( cacheKey ).id
 			);
 		}
 
-		const task = this.runTask( { site, user } );
-		UserDeletedPages.requestCache.set( cacheKey, task );
+		const task = this.runTask( { site, user, filter } );
+		UserSearchTalk.requestCache.set( cacheKey, task );
 		this.setStatus( 202 );
 		this.setHeader( 'Location', `${ task.id }/progress` );
 		return this.handleProgressRequest( req, task.id ) as TaskInformation;
@@ -130,10 +155,10 @@ export class UserDeletedPages
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public async getUserDeletedPagesResult(
+	public async getUserWarningsResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserDeletedPagesResponse> {
+	): Promise<ErrorResponse | PageRevisions> {
 		return this.handleResultRequest( req, id );
 	}
 	/**
@@ -151,7 +176,7 @@ export class UserDeletedPages
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public getUserDeletedPagesProgress(
+	public getUserWarningsProgress(
 		@Request() req: express.Request,
 		@Path() id: string
 	): ErrorResponse | TaskInformation {
