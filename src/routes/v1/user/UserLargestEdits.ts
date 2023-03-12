@@ -1,5 +1,5 @@
 import {
-	BodyProp,
+	Body,
 	Get,
 	Path,
 	Post,
@@ -18,10 +18,26 @@ import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorRespon
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
-import UserDeletedPageFetcher, { DeletedPage } from '../../../processors/UserDeletedPageFetcher';
+import { ExpandedRevision } from '../../../models/Revision';
+import DatabaseRevisionFetcher from '../../../processors/DatabaseRevisionFetcher';
+import TitleFactory from '../../../util/Title';
+import ReplicaConnection from '../../../database/ReplicaConnection';
 
-interface UserDeletedPagesResponse {
-	pages: Record<number, DeletedPage>;
+interface UserLargestEditsResponse {
+	revisions: Omit<ExpandedRevision, 'parsedcomment'>[];
+}
+
+interface UserLargestEditsConfiguration {
+	site: SiteMatrixSite;
+	user: string;
+	offset?: number;
+	namespaces?: number[];
+	withReverts?: boolean;
+	withoutTags?: string[];
+}
+
+type UserLargestEditsBody = Omit<UserLargestEditsConfiguration, 'site'> & {
+	wiki: string;
 }
 
 /**
@@ -30,8 +46,7 @@ interface UserDeletedPagesResponse {
 @Tags( 'User' )
 @Route( 'v1/user/largest-edits' )
 export class UserLargestEdits
-	extends AsyncTaskController<{ site: SiteMatrixSite, user: string },
-		UserDeletedPagesResponse> {
+	extends AsyncTaskController<UserLargestEditsConfiguration, UserLargestEditsResponse> {
 
 	static readonly errorUnsupportedWiki = new ErrorResponseBuilder()
 		.add( 'unsupportedwiki', {
@@ -48,22 +63,56 @@ export class UserLargestEdits
 	 * @inheritDoc
 	 */
 	protected getTaskListId(): string {
-		return 'user-deleted-pages';
+		return 'user-largest-edits';
 	}
 
 	/**
 	 *
 	 * @param options
-	 * @param options.user
-	 * @param options.site
 	 * @param task
 	 */
 	async process(
-		options: { site: SiteMatrixSite, user: string },
-		task: AsyncTask<UserDeletedPagesResponse>
+		options: UserLargestEditsConfiguration,
+		task: AsyncTask<UserLargestEditsResponse>
 	): Promise<void> {
-		const udrf = new UserDeletedPageFetcher( options.site, 'web' );
-		task.finish( { pages: await udrf.fetch( options.user ) } );
+		const conn = await ReplicaConnection.connect( options.site, 'web' );
+		const Title = await TitleFactory.get( options.site );
+		const user = new Title( options.user, 2 );
+
+		// Get the revisions
+		const drf = await DatabaseRevisionFetcher.fetch( conn, Title, ( qb ) => {
+			qb
+				.select( {
+					diff: conn.raw(
+						'(CAST(main.rev_len AS SIGNED) - CAST(parent.rev_len AS SIGNED))'
+					)
+				} )
+				.where( 'main.rev_actor', conn( 'actor_revision' )
+					.select( 'actor_id' )
+					.where( 'actor_name', user.getMain() )
+				)
+				.orderBy( 'diff', 'desc' );
+
+			if ( options.namespaces ) {
+				qb.where( 'page_namespace', 'in', options.namespaces );
+			}
+			if ( !options.withReverts ) {
+				qb.withoutTags( [
+					'mw-rollback', 'mw-undo', 'mw-manual-revert'
+				], 'main' );
+			}
+			if ( options.withoutTags ) {
+				qb.withoutTags( options.withoutTags, 'main' );
+			}
+
+			return qb
+				.limit( 50 )
+				.offset( options.offset ?? 0 );
+		} );
+		task.updateProgress( 0.5 );
+
+		await DatabaseRevisionFetcher.upgradeRevisionsWithParsedEditSummaries( options.site, drf );
+		task.finish( { revisions: drf } );
 	}
 
 	/**
@@ -75,25 +124,23 @@ export class UserLargestEdits
 	 *
 	 * @param req The request object
 	 * @param bypassCache Whether to skip the cache or not
-	 * @param user The username of the user
-	 * @param wiki The wiki to query for
+	 * @param config
 	 * @return Relevant task information
 	 */
 	@Post()
 	@SuccessResponse( 202, 'Accepted' )
-	public async getUserDeletedPages(
+	public async getUserLargestEdits(
 		@Request() req: express.Request,
 		@Query() bypassCache: boolean = false,
-		@BodyProp() user: string,
-		@BodyProp() wiki: string
+		@Body() config: UserLargestEditsBody
 	): Promise<TaskInformation | ErrorResponse> {
-		const site = await WikimediaSiteMatrix.i.getDbName( wiki );
+		const site = await WikimediaSiteMatrix.i.getDbName( config.wiki );
 		if ( !site ) {
 			this.setStatus( 400 );
 			return UserLargestEdits.errorUnsupportedWiki.build();
 		}
 
-		const cacheKey = JSON.stringify( { user, wiki } );
+		const cacheKey = JSON.stringify( config );
 		if (
 			UserLargestEdits.requestCache.has( cacheKey ) &&
 			!UserLargestEdits.requestCache.isStale( cacheKey ) &&
@@ -104,7 +151,7 @@ export class UserLargestEdits
 			);
 		}
 
-		const task = this.runTask( { site, user } );
+		const task = this.runTask( Object.assign( {}, config, { site } ) );
 		UserLargestEdits.requestCache.set( cacheKey, task );
 		this.setStatus( 202 );
 		this.setHeader( 'Location', `${ task.id }/progress` );
@@ -130,10 +177,10 @@ export class UserLargestEdits
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public async getUserDeletedPagesResult(
+	public async getUserLargestEditsResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserDeletedPagesResponse> {
+	): Promise<ErrorResponse | UserLargestEditsResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**
@@ -151,7 +198,7 @@ export class UserLargestEdits
 		ErrorResponseBuilder.generic.build()
 	)
 	@SuccessResponse( 200, 'OK' )
-	public getUserDeletedPagesProgress(
+	public getUserLargestEditsProgress(
 		@Request() req: express.Request,
 		@Path() id: string
 	): ErrorResponse | TaskInformation {

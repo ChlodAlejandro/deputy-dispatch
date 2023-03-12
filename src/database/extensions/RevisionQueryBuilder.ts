@@ -71,6 +71,28 @@ declare module 'knex' {
 				revisionTableAlias?: string,
 				joinTableAlias?: string
 			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
+
+			/**
+			 * Only selects revisions with the given tag.
+			 *
+			 * @param tags The list of tags that must be present on the revision.
+			 * @param revisionTableAlias The alias of the revision table.
+			 */
+			withTags: <TRecord, TResult>(
+				tags: string[],
+				revisionTableAlias?: string
+			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
+
+			/**
+			 * Only selects revisions without the given tag.
+			 *
+			 * @param tags The list of tags that must not be present on the revision.
+			 * @param revisionTableAlias The alias of the revision table.
+			 */
+			withoutTags: <TRecord, TResult>(
+				tags: string[],
+				revisionTableAlias?: string
+			) => KnexOriginal.QueryBuilder<TRecord, TResult>;
 		}
 	}
 }
@@ -123,6 +145,66 @@ export default function attachRevisionQueryBuilderExtensions() {
 			this, 'page', 'rev_page', 'page_id',
 			columns, revisionTableAlias, joinTableAlias
 		);
+	} );
+
+	knex.QueryBuilder.extend( 'withTags', function (
+		tags: string[],
+		revisionTableAlias?: string
+	) {
+		const revIdCol = `${ revisionTableAlias ? revisionTableAlias + '.' : '' }rev_id`;
+
+		for ( const tag of tags ) {
+			const joinKey = `ct_has_tag_${
+				tag.replace( /^[a-z0-9_]/gi, '_' )
+			}_${ Math.floor( Math.random() * 1e8 ) }`;
+			const joinColumn = ( s ) => `${joinKey}.${s}`;
+			this.leftJoin(
+				{ [ joinKey ]: 'change_tag' },
+				( clause ) => clause
+					.on( joinColumn( 'ct_rev_id' ), revIdCol )
+					.andOnVal( joinColumn( 'ct_tag_id' ), this.client.queryBuilder()
+						.from( 'change_tag_def' )
+						.select( 'ctd_id' )
+						.where( 'ctd_name', tag )
+					)
+			);
+			this.andWhereNot(
+				joinColumn( 'ct_rev_id' ),
+				null
+			);
+		}
+
+		return this;
+	} );
+
+	knex.QueryBuilder.extend( 'withoutTags', function (
+		tags: string[],
+		revisionTableAlias?: string
+	) {
+		const revIdCol = `${ revisionTableAlias ? revisionTableAlias + '.' : '' }rev_id`;
+
+		for ( const tag of tags ) {
+			const joinKey = `ct_has_no_tag_${
+				tag.replace( /^[a-z0-9_]/gi, '_' )
+			}_${ Math.floor( Math.random() * 1e8 ) }`;
+			const joinColumn = ( s ) => `${joinKey}.${s}`;
+			this.leftJoin(
+				{ [ joinKey ]: 'change_tag' },
+				( clause ) => clause
+					.on( joinColumn( 'ct_rev_id' ), revIdCol )
+					.andOnVal( joinColumn( 'ct_tag_id' ), this.client.queryBuilder()
+						.from( 'change_tag_def' )
+						.select( 'ctd_id' )
+						.where( 'ctd_name', tag )
+					)
+			);
+			this.andWhere(
+				joinColumn( 'ct_rev_id' ),
+				null
+			);
+		}
+
+		return this;
 	} );
 
 }

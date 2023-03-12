@@ -118,7 +118,7 @@ export class UserSearchTalk extends AsyncTaskController<
 			}
 		}
 
-		const cacheKey = JSON.stringify( { user, wiki } );
+		const cacheKey = JSON.stringify( { user, wiki, filter } );
 		if (
 			UserSearchTalk.requestCache.has( cacheKey ) &&
 			!UserSearchTalk.requestCache.isStale( cacheKey ) &&
