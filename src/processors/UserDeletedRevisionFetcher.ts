@@ -75,16 +75,7 @@ export default class UserDeletedRevisionFetcher {
 		Promise<PossibleDeletedRevision[]> {
 		return DatabaseRevisionFetcher.fetch(
 			conn, Title, ( qb ) => qb
-				.select(
-					conn.raw( `
-					(
-						SELECT GROUP_CONCAT(ctd_name SEPARATOR ",")
-						FROM change_tag
-						JOIN change_tag_def ON ctd_id = ct_tag_id
-						WHERE ct_rev_id = main.rev_id
-					) as ts_tags
-				`.replace( /[\t\r\n]/g, ' ' ) )
-				).where( 'main.rev_actor', conn( 'actor_revision' )
+				.where( 'main.rev_actor', conn( 'actor_revision' )
 					.select( 'actor_id' )
 					.where( 'actor_name', user.getMain() )
 				)

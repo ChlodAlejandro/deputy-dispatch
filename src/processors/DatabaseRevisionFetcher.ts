@@ -7,6 +7,7 @@ import dbString from '../database/util/dbString';
 import TitleFactory from '../util/Title';
 import { MwnTitleStatic } from 'mwn/build/title';
 import { ExpandedRevision } from '../models/Revision';
+import WikimediaSessionManager from './WikimediaSessionManager';
 
 /**
  * Fetches revisions from the Replica database.
@@ -61,6 +62,14 @@ export default class DatabaseRevisionFetcher {
 					'main.rev_comment_id',
 					'main.rev_actor'
 				)
+				.select( conn.raw( `
+					(
+						SELECT GROUP_CONCAT(ctd_name SEPARATOR ",")
+						FROM change_tag
+						JOIN change_tag_def ON ctd_id = ct_tag_id
+						WHERE ct_rev_id = main.rev_id
+					) as ts_tags
+				`.replace( /[\t\r\n]/g, ' ' ) ) )
 				.withRevisionParents( [ 'rev_len' ], 'main', 'parent' )
 				.withRevisionActor( [ 'actor_name' ], 'main' )
 				.withRevisionComment( [ 'comment_text' ], 'main' )
@@ -77,7 +86,7 @@ export default class DatabaseRevisionFetcher {
 				timestamp: v.rev_timestamp ? dbTimestamp( v.rev_timestamp ).toISOString() : null,
 				size: v.rev_len,
 				comment: v.comment_text ? dbString( v.comment_text ) : null,
-				tags: dbString( v.ts_tags ).split( ',' ),
+				tags: dbString( v.ts_tags, null )?.split( ',' ) ?? [],
 				page: {
 					pageid: +v.page_id,
 					title: new Title(
@@ -87,8 +96,8 @@ export default class DatabaseRevisionFetcher {
 				},
 				diffsize: v.rev_len - v.parent_rev_len,
 
-				...( v.rev_comment_id ? { commenthidden: true } : {} ),
-				...( v.rev_actor ? { userhidden: true } : {} )
+				...( v.rev_comment_id == null ? { commenthidden: true } : {} ),
+				...( v.rev_actor == null ? { userhidden: true } : {} )
 			} ) ) );
 	}
 
@@ -103,6 +112,59 @@ export default class DatabaseRevisionFetcher {
 		const conn = await ReplicaConnection.connect( this.site, this.type );
 		const Title = await TitleFactory.get( this.site );
 		return DatabaseRevisionFetcher.fetch( conn, Title, processor );
+	}
+
+	/**
+	 * What a long function name.
+	 *
+	 * Upgrades revisions with their respective parsed edit summaries.
+	 * Performs an in-place upgrade of the revisions.
+	 *
+	 * @param site
+	 * @param revisions
+	 */
+	static async upgradeRevisionsWithParsedEditSummaries(
+		site: SiteMatrixSite,
+		revisions: ExpandedRevision[]
+	): Promise<void> {
+		const revisionMap = new Map( revisions.map( r => [ r.revid, r ] ) );
+		const revisionIds = Array.from( revisionMap.keys() );
+
+		const parsedSummaries = await this.getParsedEditSummaries( site, revisionIds );
+		for ( const [ revid, parsedSummary ] of Object.entries( parsedSummaries ) ) {
+			revisionMap.get( +revid ).parsedcomment = parsedSummary;
+		}
+	}
+
+	/**
+	 * Get the parsed edit summaries of a given set of revisions.
+	 *
+	 * @param site
+	 * @param revids
+	 */
+	static async getParsedEditSummaries(
+		site: SiteMatrixSite,
+		revids: number[]
+	): Promise<Record<number, string>> {
+		const parsedSummaries: Record<number, string> = {};
+
+		const mw = await WikimediaSessionManager.getClient( site );
+		for await ( const response of mw.massQueryGen( {
+			action: 'query',
+			format: 'json',
+			prop: 'revisions',
+			revids: revids,
+			formatversion: '2',
+			rvprop: 'parsedcomment|ids'
+		}, 'revids' ) ) {
+			for ( const page of response.query.pages ) {
+				for ( const revision of page.revisions ) {
+					parsedSummaries[ revision.revid ] = revision.parsedcomment;
+				}
+			}
+		}
+
+		return parsedSummaries;
 	}
 
 }
