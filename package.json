@@ -60,7 +60,7 @@
         "strfnr": "^0.1.0",
         "swagger-ui-express": "^4.6.0",
         "ts-node": "^10.9.1",
-        "tsoa": "^5.0.0",
+        "tsoa": "^5.1.1",
         "typescript": "^4.9.4",
         "wikimedia-streams": "^0.4.0"
     }
