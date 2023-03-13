@@ -39,6 +39,8 @@ export default class DatabaseConnection {
 			// Data incomplete, do file reads
 			await this.readMyCnf( [
 				path.resolve( os.homedir(), '.replica.my.cnf' ),
+				path.resolve( os.homedir(), 'replica.my.cnf' ),
+				path.resolve( ROOT_PATH, '.replica.my.cnf' ),
 				path.resolve( ROOT_PATH, 'replica.my.cnf' )
 			] );
 		}
