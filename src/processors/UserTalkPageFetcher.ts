@@ -126,7 +126,7 @@ export default class UserTalkPageFetcher {
 			action: 'query',
 			prop: 'revisions',
 			titles: pageTitle.getPrefixedText(),
-			rvprop: 'ids|timestamp|flags|comment|user|content',
+			rvprop: 'ids|timestamp|flags|parsedcomment|comment|user|content',
 			rvslots: 'main', // TODO: Slot support
 			rvlimit: 'max',
 			rvdir: 'newer'
