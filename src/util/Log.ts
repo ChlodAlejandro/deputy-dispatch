@@ -25,4 +25,9 @@ logger.addStream( {
 	stream: logFileStream
 } );
 
+logFileStream.on( 'error', () => {
+	logger.warn( 'Error on the log write stream; reopening streams...' );
+	logger.reopenFileStreams();
+} );
+
 export default logger;
