@@ -21,6 +21,8 @@ export interface DeletedPage {
 	pageid: number | null;
 	ns: number;
 	title: string;
+	created: string;
+	length: number;
 
 	/**
 	 * A log entry describing the deletion. If the log entry could not be found,
@@ -72,6 +74,7 @@ export default class UserDeletedPageFetcher {
 				'ar_title',
 				'ar_page_id',
 				'ar_timestamp',
+				'ar_len',
 				conn.raw( `
 					(
 						SELECT GROUP_CONCAT(ctd_name SEPARATOR ",")
@@ -117,6 +120,8 @@ export default class UserDeletedPageFetcher {
 					pageid: row.ar_page_id ?? null,
 					ns: row.ar_namespace,
 					title: pageTitle,
+					created: dbTimestamp( row.ar_timestamp ).toISOString(),
+					length: row.ar_len,
 					deleted: getLogData( !logMatches )
 				} );
 			} else {
