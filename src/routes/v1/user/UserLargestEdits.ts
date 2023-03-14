@@ -180,7 +180,7 @@ export class UserLargestEdits
 	public async getUserLargestEditsResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserLargestEditsResponse> {
+	): Promise<UserLargestEditsResponse | ErrorResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**

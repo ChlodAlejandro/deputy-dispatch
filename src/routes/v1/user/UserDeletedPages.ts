@@ -133,7 +133,7 @@ export class UserDeletedPages
 	public async getUserDeletedPagesResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserDeletedPagesResponse> {
+	): Promise<UserDeletedPagesResponse | ErrorResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**

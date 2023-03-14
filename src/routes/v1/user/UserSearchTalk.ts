@@ -158,7 +158,7 @@ export class UserSearchTalk extends AsyncTaskController<
 	public async getUserWarningsResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | PageRevisions> {
+	): Promise<PageRevisions | ErrorResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**

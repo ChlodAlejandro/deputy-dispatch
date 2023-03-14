@@ -170,7 +170,7 @@ export class UserDeletedRevisions
 	public async getUserDeletedRevisionsResult(
 		@Request() req: express.Request,
 		@Path() id: string
-	): Promise<ErrorResponse | UserDeletedRevisionsResponse> {
+	): Promise<UserDeletedRevisionsResponse | ErrorResponse> {
 		return this.handleResultRequest( req, id );
 	}
 	/**
