@@ -4,31 +4,11 @@ import dbTimestamp from '../database/util/dbTimestamp';
 import ReplicaConnection from '../database/ReplicaConnection';
 import dbString from '../database/util/dbString';
 import phpUnserialize from 'phpunserialize';
-import { LogEntry } from '../models/Log';
+import { DeletedPage, PageDeletionInfo } from '../models/DeletedPage';
 
 declare module 'phpunserialize' {
 	// eslint-disable-next-line @typescript-eslint/no-shadow
 	export default function phpUnserialize( str: string ): any;
-}
-
-export interface PageDeletionInfo extends LogEntry {
-	params: any;
-
-	guessed: boolean;
-}
-
-export interface DeletedPage {
-	pageid: number | null;
-	ns: number;
-	title: string;
-	created: string;
-	length: number;
-
-	/**
-	 * A log entry describing the deletion. If the log entry could not be found,
-	 * either due to the deletion's age or ambiguity, this will be `true`.
-	 */
-	deleted: true | PageDeletionInfo;
 }
 
 /**

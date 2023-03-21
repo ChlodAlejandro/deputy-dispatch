@@ -18,7 +18,8 @@ import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorRespon
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
-import UserDeletedPageFetcher, { DeletedPage } from '../../../processors/UserDeletedPageFetcher';
+import UserDeletedPageFetcher from '../../../processors/UserDeletedPageFetcher';
+import { DeletedPage } from '../../../models/DeletedPage';
 
 interface UserDeletedPagesResponse {
 	pages: Record<number, DeletedPage>;
