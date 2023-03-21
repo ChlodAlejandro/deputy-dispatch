@@ -73,7 +73,7 @@ export default class Dispatch {
 				const origin = req.header( 'Origin' );
 				if ( origin && await WikimediaSiteMatrix.i.getOrigin( origin ) ) {
 					res.header( 'Access-Control-Allow-Origin', '*' );
-					res.header( 'Access-Control-Allow-Headers', 'Api-User-Agent' );
+					res.header( 'Access-Control-Allow-Headers', 'Api-User-Agent, Content-Type' );
 					res.header( 'Vary', 'Origin' );
 				}
 			} catch ( e ) {
