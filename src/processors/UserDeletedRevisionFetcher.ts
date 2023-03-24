@@ -134,9 +134,11 @@ export default class UserDeletedRevisionFetcher {
 		// Since the array iterates entries from oldest to newest, successive new matches
 		// will be overwritten.
 		for ( const entry of foundLogEntries ) {
+			entry.params.ids.sort( ( a, b ) => a - b );
+			const firstFew = entry.params.ids.slice( 0, 3 );
 			for ( const id of entry.params.ids ) {
 				entryIndex[ id ] = entry;
-				entryFirstFew[ id ] = entry.params.ids.sort().slice( 0, 3 );
+				entryFirstFew[ id ] = firstFew;
 			}
 		}
 
