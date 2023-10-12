@@ -11,7 +11,6 @@ import {
 	Tags
 } from 'tsoa';
 import AsyncTaskController, {
-	AsyncTask,
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
@@ -22,6 +21,7 @@ import { ExpandedRevision } from '../../../models/Revision';
 import DatabaseRevisionFetcher from '../../../processors/DatabaseRevisionFetcher';
 import TitleFactory from '../../../util/Title';
 import ReplicaConnection from '../../../database/ReplicaConnection';
+import { AsyncTask } from '../../abstract/AsyncTask';
 
 interface UserLargestEditsResponse {
 	revisions: Omit<ExpandedRevision, 'parsedcomment'>[];

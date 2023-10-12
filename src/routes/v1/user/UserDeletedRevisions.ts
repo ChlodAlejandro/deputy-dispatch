@@ -11,7 +11,6 @@ import {
 	Tags
 } from 'tsoa';
 import AsyncTaskController, {
-	AsyncTask,
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
@@ -22,6 +21,7 @@ import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSite
 import ReplicaConnection from '../../../database/ReplicaConnection';
 import TitleFactory from '../../../util/Title';
 import Cache from 'stale-lru-cache';
+import { AsyncTask } from '../../abstract/AsyncTask';
 
 interface UserDeletedRevisionsResponse {
 	revisions: Record<number, DeletedRevision>;

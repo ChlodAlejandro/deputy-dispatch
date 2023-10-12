@@ -1,52 +1,8 @@
 import { Controller } from 'tsoa';
 import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../models/ErrorResponse';
 import express from 'express';
-import crypto from 'crypto';
+import { AsyncTask } from './AsyncTask';
 import Log from '../../util/Log';
-
-/**
- * An asynchronous task that is currently running. It can be used to set
- * the task progress within the async task, and to indicate when a result
- * has been generated.
- */
-export class AsyncTask<R> {
-
-	// Task data expires after 1 hour.
-	static readonly TASK_EXPIRE_TIME = 3600e3;
-
-	id: string = crypto.randomUUID();
-	finished: boolean = false;
-	progress: number = 0;
-	expireTime: number = Date.now() + AsyncTask.TASK_EXPIRE_TIME;
-	result: R;
-
-	/**
-	 * Update the progress of this task.
-	 *
-	 * @param progress The task's current progress. Must be within 0 and 1.
-	 */
-	updateProgress( progress: number ) {
-		this.progress = Math.max( 0, Math.min( 1, progress ) );
-		Log.trace( `${( this.progress * 100 ).toFixed( 2 )}% done.`, {
-			task: this.id
-		} );
-	}
-
-	/**
-	 * Mark this task as finished and set the result.
-	 *
-	 * @param result
-	 */
-	finish( result: R ) {
-		this.progress = 1;
-		this.result = result;
-		this.finished = true;
-		Log.trace( 'Finished.', {
-			task: this.id
-		} );
-	}
-
-}
 
 /**
  * Response type which returns the ID of a queued task and its progress.
@@ -78,7 +34,14 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 			key: 'apierror-task-unfinished'
 		} );
 
-	private static taskLists = new Map<string, Map<string, AsyncTask<any>>>();
+	/**
+	 * A list of tasks mapped by task UUIDs. The task may be an in-progress or
+	 * completed AsyncTask, or an Error class, if the task execution experienced
+	 * an uncaught promise rejection.
+	 *
+	 * @private
+	 */
+	private static taskLists = new Map<string, Map<string, AsyncTask<any> | Error>>();
 
 	/**
 	 * @protected
@@ -89,7 +52,7 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	/**
 	 * @return the tasks list for this asynchronous task controller.
 	 */
-	private get tasks(): Map<string, AsyncTask<R>> {
+	private get tasks(): Map<string, AsyncTask<R> | Error> {
 		const tli = this.getTaskListId();
 		if ( !AsyncTaskController.taskLists.has( tli ) ) {
 			AsyncTaskController.taskLists.set( tli, new Map() );
@@ -105,7 +68,16 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	runTask( options: O ): AsyncTask<R> {
 		const task = new AsyncTask<R>();
 		this.tasks.set( task.id, task );
-		this.process( options, task );
+		this.process( options, task )
+			.catch( ( e ) => {
+				Log.error( `Error occurred while completing task ${task.id}.` );
+				Log.error( task );
+				if ( e instanceof Error ) {
+					this.tasks.set( task.id, e );
+				} else {
+					this.tasks.set( task.id, new Error( String( e ) ) );
+				}
+			} );
 		return task;
 	}
 
@@ -125,7 +97,7 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	 */
 	sweepTasks(): void {
 		for ( const [ id, task ] of this.tasks.entries() ) {
-			if ( Date.now() - task.expireTime > 0 ) {
+			if ( task instanceof Error || Date.now() - task.expireTime > 0 ) {
 				this.tasks.delete( id );
 			}
 		}
@@ -163,7 +135,8 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	 * @return If the task has expired
 	 */
 	isTaskExpired( id: string ): boolean {
-		return Date.now() - this.tasks.get( id ).expireTime > 0;
+		const task = this.tasks.get( id );
+		return task instanceof Error ? true : Date.now() - task.expireTime > 0;
 	}
 
 	/**
@@ -173,7 +146,8 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	 * @return The current progress, from 0 to 1.
 	 */
 	getTaskProgress( id: string ): number {
-		return this.tasks.get( id ).progress;
+		const task = this.tasks.get( id );
+		return task instanceof Error ? 1 : task.progress;
 	}
 
 	/**
@@ -183,7 +157,8 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	 * @return If the task is finished
 	 */
 	getTaskFinished( id: string ): boolean {
-		return this.tasks.get( id ).finished;
+		const task = this.tasks.get( id );
+		return task instanceof Error ? true : task.finished;
 	}
 
 	/**
@@ -193,7 +168,8 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 	 * @return The task result
 	 */
 	getTaskResult( id: string ): R {
-		return this.tasks.get( id ).result;
+		const task = this.tasks.get( id );
+		return task instanceof Error ? null : task.result;
 	}
 
 	/**
@@ -238,7 +214,14 @@ export default abstract class AsyncTaskController<O, R> extends Controller {
 			);
 		}
 		const task = this.tasks.get( id );
-		if ( !task.finished ) {
+		if ( task instanceof Error ) {
+			this.setStatus( 500 );
+			return new ErrorResponseBuilder()
+				.add( 'task-uncaught-generic', {
+					text: 'Uncaught error: ' + task.message,
+					key: 'apierror-task-uncaught-generic'
+				} ).build();
+		} else if ( !task.finished ) {
 			this.setStatus( 409 );
 			return AsyncTaskController.unfinishedTask.build(
 				req.params.errorformat as ErrorFormat

@@ -11,7 +11,6 @@ import {
 	Tags
 } from 'tsoa';
 import AsyncTaskController, {
-	AsyncTask,
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
@@ -19,6 +18,7 @@ import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
 import UserTalkPageFetcher, { PageRevisions } from '../../../processors/UserTalkPageFetcher';
+import { AsyncTask } from '../../abstract/AsyncTask';
 
 type FilterType = string | string[] | { source: string, flags: string };
 

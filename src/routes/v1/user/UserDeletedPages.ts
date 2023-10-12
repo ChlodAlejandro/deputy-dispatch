@@ -11,7 +11,6 @@ import {
 	Tags
 } from 'tsoa';
 import AsyncTaskController, {
-	AsyncTask,
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
 import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
@@ -20,6 +19,7 @@ import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSite
 import Cache from 'stale-lru-cache';
 import UserDeletedPageFetcher from '../../../processors/UserDeletedPageFetcher';
 import { DeletedPage } from '../../../models/DeletedPage';
+import { AsyncTask } from '../../abstract/AsyncTask';
 
 interface UserDeletedPagesResponse {
 	pages: Record<number, DeletedPage>;

@@ -1,13 +1,13 @@
 import { SiteMatrixSite } from '../util/WikimediaSiteMatrix';
 import ReplicaConnection from '../database/ReplicaConnection';
 import WikimediaSessionManager from './WikimediaSessionManager';
-import type { AsyncTask } from '../routes/abstract/AsyncTaskController';
 import { Revision } from '../models/Revision';
 import { mwn, MwnTitle } from 'mwn';
 import { stringMatches } from 'strfnr';
 import countInstances from '../util/func/countInstances';
 import Log from '../util/Log';
 import regexClone from '../util/func/regexClone';
+import { AsyncTask } from '../routes/abstract/AsyncTask';
 
 type UserTalkPageFetcherFilter = string | string[] | RegExp | { source: string, flags: string };
 
