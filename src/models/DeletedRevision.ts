@@ -54,12 +54,16 @@ export interface RevisionDeletionParams {
 	ids: number[];
 	/**
 	 * The old deletion bitmask and flags
+	 *
+	 * If accurate flags cannot be determined, this may be null.
 	 */
-	old: ChangeDeletionFlags;
+	old: ChangeDeletionFlags | null;
 	/**
 	 * The new deletion bitmask and flags
+	 *
+	 * If accurate flags cannot be determined, this may be null.
 	 */
-	new: ChangeDeletionFlags;
+	new: ChangeDeletionFlags | null;
 }
 
 export interface RevisionDeletionInfo extends LogEntry {

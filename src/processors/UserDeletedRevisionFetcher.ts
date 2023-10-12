@@ -122,13 +122,15 @@ export default class UserDeletedRevisionFetcher {
 			.andWhere( ( qb ) => {
 				let ref = qb;
 				for ( const revId of revisionIds ) {
-					ref = ref.orWhereRaw( `\`log_params\` LIKE "%i:${ revId };%"` );
+					ref = ref.orWhereRaw( `\`log_params\` LIKE "%${ revId }%"` );
 				}
 				return ref;
 			} )
 			.orderBy( 'log_timestamp', 'asc' )
 			.then( entries => entries.map( this.logDeserialize.bind( this, Title ) ) );
 
+		// Index each log entry by the revision IDs they include
+		// This allows us to attach log entries to revisions by their ID
 		const entryIndex = {};
 		const entryFirstFew = {};
 		// Since the array iterates entries from oldest to newest, successive new matches
@@ -162,11 +164,47 @@ export default class UserDeletedRevisionFetcher {
 		Title: MwnTitleStatic,
 		logEntry: Record<string, Buffer | number>
 	): RevisionDeletionInfo {
-		// Strip out the numeric internationalization keys from the param keys.
-		const deserializedParameters: any = logEntry.log_params ? Object.fromEntries(
-			Object.entries( phpUnserialize( dbString( logEntry.log_params as Buffer ) ) )
-				.map( ( [ k, v ] ) => [ k.replace( /^\d+::/, '' ), v ] )
-		) : null;
+		// Revision IDs can never be null, as it being set to correct value
+		// is required for a proper log_params to appear in the first place.
+		let deserializedParameters: {
+			type: 'revision',
+			ids: number[],
+			ofield: number | null,
+			nfield: number | null
+		};
+
+		// log_params will always be available; it is required for this function
+		// to be called.
+		const paramsString = dbString( logEntry.log_params as Buffer );
+		if ( paramsString.startsWith( 'a:' ) ) {
+			// This is a PHP serialize() string
+			// If it isn't, phpUnserialize throws. We have NO CLUE what it is.
+			// Strip out the numeric internationalization keys from the param keys.
+			deserializedParameters = Object.fromEntries(
+				Object.entries( phpUnserialize( paramsString ) )
+					.map( ( [ k, v ] ) => [ k.replace( /^\d+::/, '' ), v ] )
+			// Force type cast, since the type here is defined by the on-MediaWiki spec anyway.
+			) as typeof deserializedParameters;
+		} else {
+			const splitParameters = paramsString.split( '\n' );
+			if ( splitParameters.length < 3 ) {
+				// Legacy log entry. It starts with "oldid" and has a single revision ID.
+				deserializedParameters = {
+					type: 'revision',
+					ids: [ +splitParameters[ 1 ] ],
+					ofield: null,
+					nfield: null
+				};
+			} else {
+				// Unserialized log entry. We can still parse this.
+				deserializedParameters = {
+					type: 'revision',
+					ids: [ +splitParameters[ 1 ] ],
+					ofield: +splitParameters[ 2 ].split( '=' )[ 1 ],
+					nfield: +splitParameters[ 3 ].split( '=' )[ 1 ]
+				};
+			}
+		}
 
 		const bitmaskToDeletionFlags = ( bitmask: number ): ChangeDeletionFlags => ( {
 			bitmask: bitmask,

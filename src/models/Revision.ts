@@ -21,7 +21,7 @@ export interface RevisionData {
 	 */
 	user: string | null,
 	/**
-	 * The timestamp on which the edit was made.
+	 * The timestamp on which the edit was made. ISO format.
 	 */
 	timestamp: string,
 	/**
