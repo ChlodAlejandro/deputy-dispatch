@@ -17,41 +17,10 @@ import attachArchiveQueryBuilderExtensions from './extensions/ArchiveQueryBuilde
  */
 export default class DatabaseConnection {
 
-	private static DB_USER:string;
-	private static DB_PASS: string;
-	/**
-	 * @return whether database connections can be made.
-	 */
-	public static get ENABLED(): boolean {
-		return !!DatabaseConnection.DB_USER &&
-			!!DatabaseConnection.DB_PASS;
-	}
-
 	/**
 	 * Verify environment variables and data.
 	 */
 	static async verifyEnvironment(): Promise<void> {
-		DatabaseConnection.DB_USER =
-			process.env.DISPATCH_TOOLSDB_USER || process.env.USER;
-		DatabaseConnection.DB_PASS =
-			process.env.DISPATCH_TOOLSDB_PASS || process.env.MYSQL_PWD;
-		if ( !DatabaseConnection.DB_USER || !DatabaseConnection.DB_PASS ) {
-			// Data incomplete, do file reads
-			await this.readMyCnf( [
-				path.resolve( os.homedir(), '.replica.my.cnf' ),
-				path.resolve( os.homedir(), 'replica.my.cnf' ),
-				path.resolve( ROOT_PATH, '.replica.my.cnf' ),
-				path.resolve( ROOT_PATH, 'replica.my.cnf' )
-			] );
-		}
-
-		if ( !DatabaseConnection.ENABLED ) {
-			Log.error( 'No database credentials found. DB assertions will fail!' );
-			Log.info( 'This includes many API endpoints that rely on the DB.' );
-			Log.info( 'Provide an SQL user/password or a valid replica.my.cnf.' );
-			Log.info( 'See the README for more information.' );
-		}
-
 		try {
 			attachRevisionQueryBuilderExtensions();
 			attachArchiveQueryBuilderExtensions();
@@ -67,24 +36,25 @@ export default class DatabaseConnection {
 	 * Read configuration values from the replica.my.cnf file.
 	 *
 	 * @param paths A list of paths to the replica.my.cnf file.
+	 * @return An object containing the `user` and `password` for database connection.
 	 */
-	static async readMyCnf( paths: string[] ): Promise<void> {
+	static async readMyCnf( paths: string[] ): Promise<{ user: string, password: string }> {
+		let user: string,
+			password: string;
 		for ( const confPath of paths ) {
-			if ( !!DatabaseConnection.DB_USER && !!DatabaseConnection.DB_PASS ) {
-				return;
-			}
-
 			try {
+				// Low-risk file read, file path is constant.
+				// eslint-disable-next-line security/detect-non-literal-fs-filename
 				const confFile = await fs.readFile( confPath, 'utf8' );
 				const conf = ini.parse( confFile );
 
 				Log.debug( `Found replica.my.cnf: ${ confPath }` );
 
-				if ( !DatabaseConnection.DB_USER ) {
-					DatabaseConnection.DB_USER = conf.client.user;
+				if ( !user ) {
+					user = conf.client.user;
 				}
-				if ( !DatabaseConnection.DB_PASS ) {
-					DatabaseConnection.DB_PASS = conf.client.password;
+				if ( !password ) {
+					password = conf.client.password;
 				}
 			} catch ( e ) {
 				if ( e.code !== 'ENOENT' ) {
@@ -93,9 +63,72 @@ export default class DatabaseConnection {
 				}
 			}
 		}
-		if ( !DatabaseConnection.DB_USER || !DatabaseConnection.DB_PASS ) {
+		if ( !user || !password ) {
 			Log.error( 'Failed to read any valid replica.my.cnf!' );
 		}
+
+		return { user, password };
+	}
+
+	/**
+	 * Get the database credentials. Database credentials are detected in
+	 * the following order:
+	 *  - From the `DISPATCH_TOOLSDB_USER` and `DISPATCH_TOOLSDB_PASS` environment variables
+	 *  - From the `USER` and `MYSQL_PWD` environment variables
+	 *  - If on Toolforge, from the `TOOL_TOOLSDB_USER` and `TOOL_TOOLSDB_PASSWORD`
+	 *    environment variables (available in Build Service)
+	 *  - If on Toolforge, from the `.replica.my.cnf` file in the `$TOOL_DATA_DIR`
+	 *    directory (available in Build Service)
+	 *  - If on Toolforge, from the `.replica.my.cnf` file in the home directory
+	 *    (available in Kubernetes runners)
+	 *  - From the `replica.my.cnf` file in the root directory
+	 *
+	 * @param forReplicas
+	 * @return An object containing the `user` and `password` for database connection.
+	 */
+	protected static async getCredentials(
+		forReplicas = false
+	): Promise<{ user: string, password: string }> {
+		let user =
+			process.env.DISPATCH_TOOLSDB_USER || process.env.USER;
+		let password =
+			process.env.DISPATCH_TOOLSDB_PASS || process.env.MYSQL_PWD;
+
+		if ( TOOLFORGE && forReplicas ) {
+			user = process.env.TOOL_REPLICA_USER;
+			password = process.env.TOOL_REPLICA_PASSWORD;
+		} else if ( TOOLFORGE && !forReplicas ) {
+			user = process.env.TOOL_TOOLSDB_USER;
+			password = process.env.TOOL_TOOLSDB_PASSWORD;
+		}
+
+		if ( !user || !password ) {
+			// Data incomplete, do file reads
+			const searchPaths = [
+				path.resolve( ROOT_PATH, '.replica.my.cnf' ),
+				path.resolve( ROOT_PATH, 'replica.my.cnf' )
+			];
+			if ( TOOLFORGE && process.env.TOOL_DATA_DIR ) {
+				searchPaths.splice(
+					0, 0,
+					path.resolve( process.env.TOOL_DATA_DIR, '.replica.my.cnf' ),
+					path.resolve( process.env.TOOL_DATA_DIR, 'replica.my.cnf' )
+				);
+			} else {
+				searchPaths.splice(
+					0, 0,
+					path.resolve( os.homedir(), '.replica.my.cnf' ),
+					path.resolve( os.homedir(), 'replica.my.cnf' )
+				);
+			}
+			await this.readMyCnf( searchPaths )
+				.then( ( creds ) => {
+					user = user || creds.user;
+					password = password || creds.password;
+				} );
+		}
+
+		return { user, password };
 	}
 
 	/**
@@ -117,13 +150,22 @@ export default class DatabaseConnection {
 			throw new Error( 'Attempted to connect to non-Wikimedia database.' );
 		}
 
+		const credentials = await this.getCredentials(
+			host !== 'tools.db.svc.wikimedia.cloud'
+		);
+
+		if ( !credentials || !credentials.user || !credentials.password ) {
+			Log.error( 'No database credentials found!' );
+			Log.info( 'Provide an SQL user/password or a valid replica.my.cnf.' );
+			Log.info( 'See the README for more information.' );
+		}
+
 		return knex( {
 			client: 'mysql2',
 			connection: {
 				host,
 				port,
-				user: DatabaseConnection.DB_USER,
-				password: DatabaseConnection.DB_PASS,
+				...credentials,
 				database
 			},
 			// Prevent idle connections per policy

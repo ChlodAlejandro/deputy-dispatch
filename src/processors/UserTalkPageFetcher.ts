@@ -58,9 +58,8 @@ export default class UserTalkPageFetcher {
 			}
 		}
 
-		const progressEnabled = ReplicaConnection.ENABLED && task;
 		let updateFunction;
-		if ( progressEnabled ) {
+		if ( task ) {
 			const totalRevisionCount = UserTalkPageFetcher.getRevisionCount( site, userTalk );
 			updateFunction = async ( revisionCount ) => {
 				task.updateProgress( revisionCount / await totalRevisionCount );

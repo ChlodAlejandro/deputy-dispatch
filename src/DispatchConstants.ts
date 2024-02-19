@@ -10,5 +10,4 @@ export const LOG_PATH = path.resolve( ROOT_PATH, '.logs' );
 /**
  * Whether we're running on Toolforge.
  */
-export const TOOLFORGE = path.resolve( ROOT_PATH ) ===
-	'/data/project/deputy/www/js';
+export const TOOLFORGE = process.env.TOOLFORGE === '1';
