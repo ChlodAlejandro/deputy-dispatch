@@ -19,6 +19,8 @@ import RevisionStore from '../../../util/RevisionStore';
 import RevisionExpander from '../../../processors/RevisionExpander';
 import WikimediaSessionManager from '../../../processors/WikimediaSessionManager';
 import Log from '../../../util/Log';
+import timeoutPromise from '../../../util/func/timeoutPromise';
+import isPromisePending from '../../../util/func/isPromisePending';
 
 /**
  *
@@ -51,6 +53,11 @@ export class MediaWikiRevisionController extends Controller {
 			} revisions per request`,
 			key: 'apierror-missingparam',
 			params: [ `${MediaWikiRevisionController.GET_LIMIT}` ]
+		} );
+	static readonly errorExpanderTimeout = new ErrorResponseBuilder()
+		.add( 'expander-timeout', {
+			text: 'Timed out trying to get revision information',
+			key: 'apierror-badinteger'
 		} );
 
 	static revisionStore = new RevisionStore( false, true );
@@ -188,15 +195,34 @@ export class MediaWikiRevisionController extends Controller {
 			Log.debug( 'mwn for default client ready' );
 			const expander = new RevisionExpander( client );
 			const processingRevisions = expander.queue( forProcessing );
-			await Promise.all( Object.values( processingRevisions ) );
-			Log.debug( `Revisions processed... ${
-				Object.keys( processingRevisions ).length
-			} total.` );
-			for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
-				// At this point, the promises are done. The "await" takes it out of their shell.
-				const expandedRevision = await promise;
-				finalRevisions[ +revision ] = expandedRevision;
-				MediaWikiRevisionController.revisionStore.set( +revision, expandedRevision );
+			try {
+				await Promise.race( [
+					Promise.all( Object.values( processingRevisions ) ),
+					timeoutPromise( 10000, 'Revision processing timed out' )
+				] );
+
+				Log.debug( `Revisions processed... ${
+					Object.keys( processingRevisions ).length
+				} total.` );
+				for ( const [ revision, promise ] of Object.entries( processingRevisions ) ) {
+					// At this point, the promises are done.
+					// The "await" takes it out of their shell.
+					const expandedRevision = await promise;
+					finalRevisions[ +revision ] = expandedRevision;
+					MediaWikiRevisionController.revisionStore.set( +revision, expandedRevision );
+				}
+			} catch ( e ) {
+				const unfinishedRevisions = Object.entries( processingRevisions )
+					.filter( ( [ , promise ] ) => isPromisePending( promise ) )
+					.map( ( [ revision ] ) => revision );
+				Log.error( e, {
+					unfinishedRevisions,
+					unfinishedRevisionCount: unfinishedRevisions.length
+				} );
+				this.setStatus( 500 );
+				return MediaWikiRevisionController.errorExpanderTimeout.build(
+					req.params.errorformat as ErrorFormat
+				);
 			}
 		}
 

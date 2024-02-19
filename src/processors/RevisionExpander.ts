@@ -53,6 +53,11 @@ export default class RevisionExpander {
 
 		const resolvedRevisions: Record<number, Revision> =
 			await this.request( Array.from( forProcessing.keys() ) );
+		Log.debug( `Processed ${
+			Object.keys( resolvedRevisions ).length
+		} revisions, ${
+			Object.keys( this.revisionQueue ).length
+		} to go.` );
 		for ( const [ id, revisionData ] of Object.entries( resolvedRevisions ) ) {
 			forProcessing.get( +id ).resolver( revisionData );
 			delete this.revisionQueue[ +id ];
@@ -85,12 +90,15 @@ export default class RevisionExpander {
 	 * @param revisions
 	 */
 	async request( revisions: number[] ): Promise<Record<number, Revision>> {
-		Log.debug( `Expanding ${revisions.length} revisions...` );
+		const log = Log.child( {
+			context: 'RevisionExpander', reID: Math.random().toString().slice( 2 )
+		} );
+		log.debug( `Expanding ${revisions.length} revisions...` );
 		const revisionBank: Record<number, Revision> = {};
 		const parentRevisionIds: number[] = [];
 		const parentRevisionSizes: Record<number, number> = {};
 
-		// Get primary revision data
+		log.debug( 'Getting primary revision data...' );
 		const primaryRevisions = await this.requestBase(
 			revisions,
 			[
@@ -123,6 +131,7 @@ export default class RevisionExpander {
 		}
 
 		// Now get parent revision size
+		log.debug( 'Getting parent revision sizes...' );
 		const parentRevisions = await this.requestBase(
 			parentRevisionIds,
 			[ 'ids', 'size' ]
@@ -148,6 +157,7 @@ export default class RevisionExpander {
 			}
 		}
 
+		log.debug( 'Finished.' );
 		return revisionBank;
 	}
 

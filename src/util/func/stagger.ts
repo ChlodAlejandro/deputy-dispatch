@@ -1,3 +1,5 @@
+import Log from '../Log';
+
 /**
  * Takes a function, and returns a new function that calls the original function
  * only if the function has finished running since the last time it was called.
@@ -11,7 +13,8 @@
  * always discarded.
  *
  * If a condition function is provided, the staggering function can also be set
- * to re-call itself if the condition returns true.
+ * to re-call itself if the condition returns true. It will continue until it
+ * is no longer true.
  *
  * @param func The function to stagger
  * @param condition A function to use as the condition to run
@@ -26,16 +29,20 @@ export default function stagger(
 	const runner = async function ( ...args: any[] ) {
 		await func( args );
 	};
-	return async function () {
+	const wrapper = async function () {
 		if ( running ) {
 			willRecall = true;
 			return;
 		}
 		running = true;
 		await runner();
-		if ( willRecall || ( condition?.() ?? false ) ) {
-			setTimeout( runner, 0 );
+		running = false;
+
+		const willRecallCondition = condition?.() ?? false;
+		if ( willRecall || willRecallCondition ) {
 			willRecall = false;
+			setTimeout( wrapper, 0 );
 		}
 	};
+	return wrapper;
 }
