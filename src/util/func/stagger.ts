@@ -1,5 +1,3 @@
-import Log from '../Log';
-
 /**
  * Takes a function, and returns a new function that calls the original function
  * only if the function has finished running since the last time it was called.
