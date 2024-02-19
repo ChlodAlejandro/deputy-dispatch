@@ -11,6 +11,7 @@ import compression from 'compression';
 import DatabaseConnection from './database/DatabaseConnection';
 import Log from './util/Log';
 import { TOOLFORGE } from './DispatchConstants';
+import { MediaWikiRevisionController } from './routes/v1/revisions/MediaWikiRevisionController';
 
 /**
  * Main class for Dispatch.
@@ -184,7 +185,16 @@ export default class Dispatch {
 	 *
 	 */
 	stop() {
+		Log.info(`Deputy Dispatch v${ packageInfo.version } is stopping...`);
+
+		Log.info( "Closing Express server..." );
 		this.server.close();
+
+		Log.info( "Stopping event streams..." );
+		MediaWikiRevisionController.revisionStore.stopStream();
+		MediaWikiRevisionController.privilegedRevisionStore.stopStream();
+
+		Log.info(`Stopped at ${ new Date().toUTCString() }.`);
 	}
 
 }
