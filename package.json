@@ -10,7 +10,7 @@
         "dev": "concurrently \"nodemon --exec \\\"npm run start:dev\\\"\" \"nodemon --watch src/routes -e ts --exec \\\"npm run build:tsoa\\\"\"",
         "start": "ts-node --transpile-only src/index.ts",
         "start:dev": "ts-node src/index.ts",
-        "build": "npm run build:tsc && npm run build:tsoa",
+        "build": "npm run build:tsoa && npm run build:tsc",
         "build:tsc": "tsc",
         "build:tsoa": "tsoa spec-and-routes"
     },
