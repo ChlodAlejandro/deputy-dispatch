@@ -138,7 +138,7 @@ export default class RevisionExpander {
 		);
 
 		for ( const response of parentRevisions ) {
-			for ( const page of response.query.pages ) {
+			for ( const page of ( response.query.pages ?? [] ) ) {
 				for ( const rev of page.revisions ) {
 					parentRevisionSizes[ rev.revid ] = rev.size;
 				}
