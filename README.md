@@ -22,6 +22,17 @@ This version is backwards compatible with API version `v1`.
 * v1 (`/v1/`) – *current version*
 
 ## Contributing
+
+Please clone with submodules (`--recursive`/`--recurse-submodules`) to ensure that
+[Dispatch types](https://github.com/ChlodAlejandro/deputy-dispatch-types)
+are also cloned alongside the repo.
+
+If you forgot to clone with submodules, just run the following commands to
+initialize the submodule for types:
+```bash
+git submodule update --init --recursive
+```
+
 You'll need a live connection to the Toolforge Replica DBs to work on Dispatch
 smoothly. You can use the following command to forward the ports automagically.
 
