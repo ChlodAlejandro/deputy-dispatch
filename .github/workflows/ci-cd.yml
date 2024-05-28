@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - src/**
+      - types
       - .github/workflows/ci-cd.yml
       - package.json
       - package-lock.json
