@@ -4,7 +4,7 @@ import http from 'http';
 import packageInfo from '../package.json';
 import { WikimediaSiteMatrix } from './util/WikimediaSiteMatrix';
 import { ValidateError } from 'tsoa';
-import ErrorResponseBuilder, { ErrorFormat } from './models/ErrorResponse';
+import { ErrorFormat } from './models/ErrorResponse';
 import { RegisterRoutes } from '../gen/routes';
 import swaggerUi from 'swagger-ui-express';
 import compression from 'compression';
@@ -12,6 +12,7 @@ import DatabaseConnection from './database/DatabaseConnection';
 import Log from './util/Log';
 import { TOOLFORGE } from './DispatchConstants';
 import { MediaWikiRevisionController } from './routes/v1/revisions/MediaWikiRevisionController';
+import ErrorResponseBuilder from './util/ErrorResponseBuilder';
 
 /**
  * Main class for Dispatch.

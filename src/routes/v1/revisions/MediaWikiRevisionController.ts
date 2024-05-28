@@ -11,7 +11,7 @@ import {
 	SuccessResponse,
 	Tags
 } from 'tsoa';
-import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../../models/ErrorResponse';
+import { ErrorFormat, ErrorResponse } from '../../../models/ErrorResponse';
 import { Revision } from '../../../models/Revision';
 import { WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import express from 'express';
@@ -21,6 +21,7 @@ import WikimediaSessionManager from '../../../processors/WikimediaSessionManager
 import Log from '../../../util/Log';
 import timeoutPromise from '../../../util/func/timeoutPromise';
 import isPromisePending from '../../../util/func/isPromisePending';
+import ErrorResponseBuilder from '../../../util/ErrorResponseBuilder';
 
 /**
  *

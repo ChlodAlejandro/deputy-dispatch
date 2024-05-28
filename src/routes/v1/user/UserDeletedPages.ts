@@ -13,13 +13,14 @@ import {
 import AsyncTaskController, {
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
-import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
+import { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
 import UserDeletedPageFetcher from '../../../processors/UserDeletedPageFetcher';
 import { DeletedPage } from '../../../models/DeletedPage';
 import { AsyncTask } from '../../abstract/AsyncTask';
+import ErrorResponseBuilder from '../../../util/ErrorResponseBuilder';
 
 interface UserDeletedPagesResponse {
 	pages: Record<number, DeletedPage>;

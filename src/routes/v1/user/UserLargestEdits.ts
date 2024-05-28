@@ -13,7 +13,7 @@ import {
 import AsyncTaskController, {
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
-import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
+import { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
@@ -22,6 +22,7 @@ import DatabaseRevisionFetcher from '../../../processors/DatabaseRevisionFetcher
 import TitleFactory from '../../../util/Title';
 import ReplicaConnection from '../../../database/ReplicaConnection';
 import { AsyncTask } from '../../abstract/AsyncTask';
+import ErrorResponseBuilder from '../../../util/ErrorResponseBuilder';
 
 interface UserLargestEditsResponse {
 	revisions: Omit<ExpandedRevision, 'parsedcomment'>[];

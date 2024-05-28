@@ -13,12 +13,13 @@ import {
 import AsyncTaskController, {
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
-import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
+import { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
 import { SiteMatrixSite, WikimediaSiteMatrix } from '../../../util/WikimediaSiteMatrix';
 import Cache from 'stale-lru-cache';
 import UserTalkPageFetcher, { PageRevisions } from '../../../processors/UserTalkPageFetcher';
 import { AsyncTask } from '../../abstract/AsyncTask';
+import ErrorResponseBuilder from '../../../util/ErrorResponseBuilder';
 
 type FilterType = string | string[] | { source: string, flags: string };
 

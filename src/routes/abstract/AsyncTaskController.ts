@@ -1,8 +1,9 @@
 import { Controller } from 'tsoa';
-import ErrorResponseBuilder, { ErrorFormat, ErrorResponse } from '../../models/ErrorResponse';
+import { ErrorFormat, ErrorResponse } from '../../models/ErrorResponse';
 import express from 'express';
 import { AsyncTask } from './AsyncTask';
 import Log from '../../util/Log';
+import ErrorResponseBuilder from '../../util/ErrorResponseBuilder';
 
 /**
  * Response type which returns the ID of a queued task and its progress.

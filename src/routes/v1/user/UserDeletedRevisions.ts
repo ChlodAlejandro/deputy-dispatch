@@ -13,7 +13,7 @@ import {
 import AsyncTaskController, {
 	TaskInformation
 } from '../../abstract/AsyncTaskController';
-import ErrorResponseBuilder, { ErrorResponse } from '../../../models/ErrorResponse';
+import { ErrorResponse } from '../../../models/ErrorResponse';
 import express from 'express';
 import { DeletedRevision, TextDeletedRevision } from '../../../models/DeletedRevision';
 import UserDeletedRevisionFetcher from '../../../processors/UserDeletedRevisionFetcher';
@@ -22,6 +22,7 @@ import ReplicaConnection from '../../../database/ReplicaConnection';
 import TitleFactory from '../../../util/Title';
 import Cache from 'stale-lru-cache';
 import { AsyncTask } from '../../abstract/AsyncTask';
+import ErrorResponseBuilder from '../../../util/ErrorResponseBuilder';
 
 interface UserDeletedRevisionsResponse {
 	revisions: Record<number, DeletedRevision>;
