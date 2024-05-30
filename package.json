@@ -55,7 +55,7 @@
         "ini": "^4.1.1",
         "knex": "^2.4.2",
         "mwn": "^1.11.5",
-        "mysql2": "^3.9.7",
+        "mysql2": "^3.9.8",
         "phpunserialize": "^1.3.0",
         "stale-lru-cache": "^5.1.1",
         "strfnr": "^0.1.0",
